@@ -350,6 +350,12 @@ export const updateCampaign = async (id, data) => http.put(
   { loading: models.campaigns },
 );
 
+export const renameCampaign = async (id, name) => http.put(
+  `/api/campaigns/${id}/name`,
+  { name },
+  { loading: models.campaigns },
+);
+
 export const changeCampaignStatus = async (id, status) => http.put(
   `/api/campaigns/${id}/status`,
   { status },

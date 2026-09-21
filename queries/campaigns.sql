@@ -537,6 +537,11 @@ UPDATE campaigns SET
     updated_at=NOW()
 WHERE id = $1;
 
+-- name: update-campaign-name
+-- Rename only. Used for finished campaigns where every other field is
+-- locked, since the name is display only and never affects sending.
+UPDATE campaigns SET name=$2, updated_at=NOW() WHERE id=$1;
+
 -- name: update-campaign-archive
 UPDATE campaigns SET
     archive=$2,

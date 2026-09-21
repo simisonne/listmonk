@@ -88,6 +88,7 @@
     "campaigns.rateMinuteShort": "min",
     "campaigns.rawHTML": "Raw HTML",
     "campaigns.removeAltText": "Remove alternate plain text message",
+    "campaigns.rename": "Rename",
     "campaigns.richText": "Rich text",
     "campaigns.importVisualTemplate": "Import visual template",
     "campaigns.visual": "Visual",

@@ -50,6 +50,14 @@
               </b-button>
             </b-field>
           </b-field>
+          <b-field grouped v-if="isEditing && canRename && canManage">
+            <b-field expanded>
+              <b-button expanded @click="renameCampaign" :loading="loading.campaigns" type="is-primary"
+                icon-left="pencil-outline" data-cy="btn-rename">
+                {{ $t('campaigns.rename') }}
+              </b-button>
+            </b-field>
+          </b-field>
         </div>
       </div>
     </header>
@@ -64,7 +72,8 @@
             <div class="column is-7">
               <form @submit.prevent="() => onSubmit(isNew ? 'create' : 'update')">
                 <b-field :label="$t('globals.fields.name')" label-position="on-border">
-                  <b-input :maxlength="200" :ref="'focus'" v-model="form.name" name="name" :disabled="!canEdit"
+                  <b-input :maxlength="200" :ref="'focus'" v-model="form.name" name="name"
+                    :disabled="!canEdit && !canRename"
                     :placeholder="$t('globals.fields.name')" required autofocus />
                 </b-field>
 
@@ -634,11 +643,17 @@ export default Vue.extend({
       });
     },
 
+    renameCampaign() {
+      this.$api.renameCampaign(this.data.id, this.form.name).then((d) => {
+        this.data = d;
+        this.$utils.toast(this.$t('globals.messages.updated', { name: d.name }));
+      });
+    },
+
     onUpdateCampaignArchive() {
       if (this.isEditing && this.canEdit) {
         return;
       }
-
       const data = {
         archive: this.form.archive,
         archive_template_id: this.form.archiveTemplateId,
@@ -701,6 +716,11 @@ export default Vue.extend({
     canEdit() {
       return this.isNew
         || this.data.status === 'draft' || this.data.status === 'scheduled' || this.data.status === 'paused';
+    },
+
+    // Finished (and running) campaigns are fully locked except for the name.
+    canRename() {
+      return this.isEditing && !this.canEdit && this.data.status !== 'cancelled';
     },
 
     canSchedule() {

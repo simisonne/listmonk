@@ -3,6 +3,7 @@ package core
 import (
 	"database/sql"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
@@ -244,6 +245,25 @@ func (c *Core) UpdateCampaign(id int, o models.Campaign, listIDs []int, mediaIDs
 	}
 
 	return out, nil
+}
+
+// RenameCampaign updates only a campaign's name. It is allowed on
+// finished campaigns where every other field stays locked, since the
+// name is display only and never affects sending.
+func (c *Core) RenameCampaign(id int, name string) (models.Campaign, error) {
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 200 {
+		return models.Campaign{}, echo.NewHTTPError(http.StatusBadRequest,
+			c.i18n.T("globals.messages.invalidData"))
+	}
+
+	if _, err := c.q.UpdateCampaignName.Exec(id, name); err != nil {
+		c.log.Printf("error renaming campaign: %v", err)
+		return models.Campaign{}, echo.NewHTTPError(http.StatusInternalServerError,
+			c.i18n.Ts("globals.messages.errorUpdating", "name", "{globals.terms.campaign}", "error", pqErrMsg(err)))
+	}
+
+	return c.GetCampaign(id, "", "")
 }
 
 // UpdateCampaignStatus updates a campaign's status, eg: draft to running.

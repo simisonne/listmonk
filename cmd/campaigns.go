@@ -348,6 +348,42 @@ func (a *App) UpdateCampaign(c echo.Context) error {
 	return c.JSON(http.StatusOK, okResp{out})
 }
 
+// RenameCampaign updates only a campaign's name. It is allowed on
+// finished campaigns where every other field stays locked.
+func (a *App) RenameCampaign(c echo.Context) error {
+	// Get the campaign ID.
+	id := getID(c)
+
+	// Check if the user has access to the campaign.
+	if err := a.checkCampaignPerm(auth.PermTypeManage, id, c); err != nil {
+		return err
+	}
+
+	// Retrieve the campaign from the DB.
+	cm, err := a.core.GetCampaign(id, "", "")
+	if err != nil {
+		return err
+	}
+
+	if cm.Status == models.CampaignStatusCancelled {
+		return echo.NewHTTPError(http.StatusBadRequest, a.i18n.T("campaigns.cantUpdate"))
+	}
+
+	var o struct {
+		Name string `json:"name"`
+	}
+	if err := c.Bind(&o); err != nil {
+		return err
+	}
+
+	out, err := a.core.RenameCampaign(id, o.Name)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, okResp{out})
+}
+
 // UpdateCampaignStatus handles campaign status modification.
 func (a *App) UpdateCampaignStatus(c echo.Context) error {
 	// Get the campaign ID.
