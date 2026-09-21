@@ -145,7 +145,7 @@
                 <li v-for="(e, i) in visibleEvents" :key="i" class="event">
                   <b-icon :icon="eventIcon(e.type)" size="is-small" />
                   <span class="event-text">{{ eventText(e) }}</span>
-                  <small class="has-text-grey">{{ eventTime(e.created_at) }}</small>
+                  <small class="has-text-grey" :title="eventRelative(e.created_at)">{{ eventTime(e.created_at) }}</small>
                 </li>
               </ul>
               <p v-else-if="!isEventsLoading" class="has-text-grey">
@@ -265,7 +265,7 @@ export default Vue.extend({
         case 'open':
           return `${who} opened ${e.campaign_name || 'a campaign'}`;
         case 'click':
-          return `${who} clicked a link in ${e.campaign_name || 'a campaign'}`;
+          return `${who} clicked ${this.linkHost(e.url)}in ${e.campaign_name || 'a campaign'}`;
         case 'optin':
           return `${who} joined ${e.list_name || 'a public list'}`;
         case 'site_visit':
@@ -280,7 +280,22 @@ export default Vue.extend({
     },
 
     eventTime(stamp) {
+      return stamp ? dayjs(stamp).format('DD MMM HH:mm') : '';
+    },
+
+    eventRelative(stamp) {
       return stamp ? dayjs(stamp).fromNow() : '';
+    },
+
+    linkHost(url) {
+      if (!url) {
+        return 'a link ';
+      }
+      try {
+        return `${new URL(url).hostname} `;
+      } catch (err) {
+        return 'a link ';
+      }
     },
   },
 
