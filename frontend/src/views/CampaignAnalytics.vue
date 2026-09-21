@@ -87,7 +87,7 @@
         <b-input v-model="subFilter" :placeholder="$t('analytics.searchSubscribers')" icon="magnify" />
       </b-field>
       <b-table :data="filteredSubscribers" :loading="subLoading" paginated :per-page="25"
-        detailed detail-key="subscriber_id" :show-detail-icon="true"
+        detailed detail-key="subscriberId" :show-detail-icon="true"
         :empty-label="$t('analytics.noSubscriberData')">
         <b-table-column v-slot="props" field="email" :label="$t('subscribers.email')" sortable searchable>
           {{ props.row.email }}
@@ -105,9 +105,19 @@
           {{ props.row.links ? props.row.links.length : 0 }}
         </b-table-column>
         <template #detail="props">
+          <p class="mb-2">
+            <span class="has-text-weight-semibold">{{ $t('analytics.lastOpened') }}:</span>
+            {{ props.row.lastViewAt ? formatDateTime(props.row.lastViewAt) : $t('analytics.never') }}
+            &nbsp;&middot;&nbsp;
+            <span class="has-text-weight-semibold">{{ $t('analytics.lastClicked') }}:</span>
+            {{ props.row.lastClickAt ? formatDateTime(props.row.lastClickAt) : $t('analytics.never') }}
+          </p>
           <ul v-if="props.row.links && props.row.links.length > 0">
             <li v-for="(l, i) in props.row.links" :key="i">
               {{ l.count }}x <a :href="l.url" target="_blank" rel="noopener noreferrer">{{ l.url }}</a>
+              <span v-if="l.lastClickedAt" class="has-text-grey-light">
+                &middot; {{ $t('analytics.lastClicked') }}: {{ formatDateTime(l.lastClickedAt) }}
+              </span>
             </li>
           </ul>
           <span v-else>{{ $t('analytics.noSubscriberData') }}</span>
@@ -157,6 +167,7 @@ export default Vue.extend({
       urls: [],
       subscribers: [],
       subLoading: false,
+      subReqID: 0,
       subFilter: '',
       charts: {
         views: {
@@ -343,17 +354,32 @@ export default Vue.extend({
 
     getSubscriberData(camps) {
       this.subLoading = true;
+      // Tag the request so a slow response from an older selection cannot
+      // overwrite the rows of a newer one.
+      const reqID = this.subReqID + 1;
+      this.subReqID = reqID;
       this.$api.getCampaignSubscriberStats({
         id: camps.map((c) => c.id),
       }).then((data) => {
+        if (reqID !== this.subReqID) {
+          return;
+        }
         this.subscribers = data;
+        this.subLoading = false;
+      }).catch(() => {
+        if (reqID !== this.subReqID) {
+          return;
+        }
         this.subLoading = false;
       });
     },
 
-    // Run the analytics fetches for the campaigns currently in the selector.
-    // This is the same path the mounted() ?id flow uses.
-    runAnalytics() {
+    // Run the analytics fetches for the given campaigns. The campaign list is
+    // passed in explicitly and used for both the charts and the subscriber
+    // table so that both always cover exactly the same selection, instead of
+    // re-reading the selector after a tick where it may have changed again.
+    runAnalytics(camps) {
+      const campaigns = camps || this.form.campaigns;
       this.$nextTick(() => {
         // Fetch count for each analytics type (views, counts, bounces);
         Object.keys(this.charts).forEach((k) => {
@@ -361,11 +387,11 @@ export default Vue.extend({
           this.charts[k].donutData = null;
 
           // Fetch views, clicks, bounces for every campaign.
-          this.getData(k, this.form.campaigns);
+          this.getData(k, campaigns);
         });
 
         // Fetch per subscriber engagement for the selected campaigns.
-        this.getSubscriberData(this.form.campaigns);
+        this.getSubscriberData(campaigns);
       });
     },
 
@@ -398,8 +424,11 @@ export default Vue.extend({
 
         // Shallow copy and prefix the names with the campaign IDs as the
         // auto suggest results do, without mutating the shared store objects.
-        this.form.campaigns = allCamps.map((c) => ({ ...c, name: `#${c.id}: ${c.name}` }));
-        this.runAnalytics();
+        const selected = allCamps.map((c) => ({ ...c, name: `#${c.id}: ${c.name}` }));
+        this.form.campaigns = selected;
+        // Run the analytics over the exact list that was just loaded so the
+        // subscriber table covers every selected campaign.
+        this.runAnalytics(selected);
       } finally {
         this.isAllCampaignsLoading = false;
       }

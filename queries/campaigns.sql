@@ -276,10 +276,14 @@ SELECT COUNT(%s) AS "count", url
     GROUP BY links.url ORDER BY "count" DESC LIMIT 50;
 
 -- name: get-campaign-subscriber-stats
--- Per subscriber engagement for the given campaigns: opens, clicks and
--- per link click counts. Recipients are the current members of the
+-- Per subscriber engagement for the given campaigns: opens, clicks, the
+-- last open/click time per subscriber and per link click counts with the
+-- last click time per link. Recipients are the current members of the
 -- campaigns' lists, so "never opened" is approximate when lists changed
--- after the send.
+-- after the send. Campaigns that were sent without a list (single sends)
+-- have no list membership to join on, so their recorded openers/clickers
+-- are folded into the recipient set so the union covers every selected
+-- campaign.
 WITH recipients AS (
     SELECT DISTINCT sl.subscriber_id
     FROM campaign_lists cl
@@ -288,21 +292,35 @@ WITH recipients AS (
     WHERE cl.campaign_id = ANY($1)
     AND sl.status != 'unsubscribed'
     AND s.status != 'blocklisted'
+
+    UNION
+
+    -- Recipients of campaigns that have no list to join on: fall back to the
+    -- subscribers with recorded engagement on those campaigns.
+    SELECT DISTINCT e.subscriber_id
+    FROM (
+        SELECT campaign_id, subscriber_id FROM campaign_views WHERE campaign_id = ANY($1)
+        UNION
+        SELECT campaign_id, subscriber_id FROM link_clicks WHERE campaign_id = ANY($1)
+    ) e
+    JOIN campaign_lists cl ON (cl.campaign_id = e.campaign_id AND cl.list_id IS NULL)
+    JOIN subscribers s ON (s.id = e.subscriber_id AND s.status != 'blocklisted')
+    WHERE e.subscriber_id IS NOT NULL
 ),
 views AS (
-    SELECT subscriber_id, COUNT(*) AS views
+    SELECT subscriber_id, COUNT(*) AS views, MAX(created_at) AS last_view_at
     FROM campaign_views
     WHERE campaign_id = ANY($1)
     GROUP BY subscriber_id
 ),
 clicks AS (
-    SELECT subscriber_id, COUNT(*) AS clicks
+    SELECT subscriber_id, COUNT(*) AS clicks, MAX(created_at) AS last_click_at
     FROM link_clicks
     WHERE campaign_id = ANY($1)
     GROUP BY subscriber_id
 ),
 link_detail AS (
-    SELECT lc.subscriber_id, links.url, COUNT(*) AS count
+    SELECT lc.subscriber_id, links.url, COUNT(*) AS count, MAX(lc.created_at) AS last_clicked_at
     FROM link_clicks lc
     JOIN links ON links.id = lc.link_id
     WHERE lc.campaign_id = ANY($1)
@@ -310,13 +328,15 @@ link_detail AS (
 ),
 link_agg AS (
     SELECT subscriber_id,
-        JSON_AGG(JSON_BUILD_OBJECT('url', url, 'count', count) ORDER BY count DESC) AS links
+        JSON_AGG(JSON_BUILD_OBJECT('url', url, 'count', count, 'last_clicked_at', last_clicked_at) ORDER BY count DESC) AS links
     FROM link_detail
     GROUP BY subscriber_id
 )
 SELECT s.id AS subscriber_id, s.email, s.name,
     COALESCE(v.views, 0) AS views,
     COALESCE(c.clicks, 0) AS clicks,
+    v.last_view_at AS last_view_at,
+    c.last_click_at AS last_click_at,
     COALESCE(l.links, '[]') AS links
 FROM recipients r
 JOIN subscribers s ON s.id = r.subscriber_id

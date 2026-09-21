@@ -103,13 +103,16 @@ type CampaignMeta struct {
 }
 
 // CampaignSubscriberStat is one row of the per subscriber engagement
-// report: opens, clicks and per link click counts for a subscriber.
+// report: opens, clicks, the last open/click time and per link click
+// counts for a subscriber.
 type CampaignSubscriberStat struct {
 	SubscriberID int            `db:"subscriber_id" json:"subscriber_id"`
 	Email        string         `db:"email" json:"email"`
 	Name         string         `db:"name" json:"name"`
 	Views        int            `db:"views" json:"views"`
 	Clicks       int            `db:"clicks" json:"clicks"`
+	LastViewAt   null.Time      `db:"last_view_at" json:"last_view_at"`
+	LastClickAt  null.Time      `db:"last_click_at" json:"last_click_at"`
 	Links        types.JSONText `db:"links" json:"links"`
 }
 
