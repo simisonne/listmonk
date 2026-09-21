@@ -423,9 +423,21 @@ CREATE MATERIALIZED VIEW mat_dashboard_charts AS
                      created_at::DATE - INTERVAL '30 DAY' AS from_date
                      FROM campaign_views ORDER BY id DESC LIMIT 1
             )
-            SELECT COUNT(*) AS count, created_at::DATE as date FROM campaign_views
-              WHERE created_at >= (SELECT from_date FROM viewDates)
-                AND created_at < (SELECT to_date FROM viewDates) + INTERVAL '1 day'
+            SELECT COUNT(*) AS count, v.created_at::DATE as date FROM campaign_views v
+              JOIN campaigns c ON (c.id = v.campaign_id)
+              WHERE v.created_at >= (SELECT from_date FROM viewDates)
+                AND v.created_at < (SELECT to_date FROM viewDates) + INTERVAL '1 day'
+                -- Scanner filter: the earliest view of a (campaign, subscriber)
+                -- pair within 4 minutes of the send is mail-gateway noise.
+                AND NOT (v.subscriber_id IS NOT NULL
+                    AND c.started_at IS NOT NULL
+                    AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM campaign_views earlier
+                        WHERE earlier.campaign_id = v.campaign_id
+                        AND earlier.subscriber_id = v.subscriber_id
+                        AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+                    ))
               GROUP by date ORDER BY date
         ) row
     )

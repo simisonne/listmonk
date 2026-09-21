@@ -45,5 +45,58 @@ func V6_3_0(db *sqlx.DB, fs stuffbin.FileSystem, ko *koanf.Koanf, lo *log.Logger
 		return err
 	}
 
+	// Rebuild the dashboard charts materialized view so its per-day view
+	// counts drop the deleted scanner rows too. Kept in sync with the
+	// scanner filter in schema.sql (mat_dashboard_charts views CTE).
+	if _, err := db.Exec(`
+		DROP MATERIALIZED VIEW IF EXISTS mat_dashboard_charts;
+		CREATE MATERIALIZED VIEW mat_dashboard_charts AS
+		    WITH clicks AS (
+		        SELECT JSON_AGG(ROW_TO_JSON(row))
+		        FROM (
+		            WITH viewDates AS (
+			              SELECT created_at::DATE AS to_date,
+			                     created_at::DATE - INTERVAL '30 DAY' AS from_date
+			                     FROM link_clicks ORDER BY id DESC LIMIT 1
+			            )
+			            SELECT COUNT(*) AS count, created_at::DATE as date FROM link_clicks
+			              WHERE created_at >= (SELECT from_date FROM viewDates)
+			                AND created_at < (SELECT to_date FROM viewDates) + INTERVAL '1 day'
+			              GROUP by date ORDER BY date
+		        ) row
+		    ),
+		    views AS (
+		        SELECT JSON_AGG(ROW_TO_JSON(row))
+		        FROM (
+		            WITH viewDates AS (
+			              SELECT created_at::DATE AS to_date,
+			                     created_at::DATE - INTERVAL '30 DAY' AS from_date
+			                     FROM campaign_views ORDER BY id DESC LIMIT 1
+			            )
+		            SELECT COUNT(*) AS count, v.created_at::DATE as date FROM campaign_views v
+		              JOIN campaigns c ON (c.id = v.campaign_id)
+		              WHERE v.created_at >= (SELECT from_date FROM viewDates)
+		                AND v.created_at < (SELECT to_date FROM viewDates) + INTERVAL '1 day'
+		                AND NOT (v.subscriber_id IS NOT NULL
+		                    AND c.started_at IS NOT NULL
+		                    AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+		                    AND NOT EXISTS (
+		                        SELECT 1 FROM campaign_views earlier
+		                        WHERE earlier.campaign_id = v.campaign_id
+		                        AND earlier.subscriber_id = v.subscriber_id
+		                        AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+		                    ))
+		              GROUP by date ORDER BY date
+		        ) row
+		    )
+		    SELECT NOW() AS updated_at, JSON_BUILD_OBJECT('link_clicks', COALESCE((SELECT * FROM clicks), '[]'),
+			                                  'campaign_views', COALESCE((SELECT * FROM views), '[]')
+			                                ) AS data;
+		DROP INDEX IF EXISTS mat_dashboard_charts_idx;
+		CREATE UNIQUE INDEX mat_dashboard_charts_idx ON mat_dashboard_charts (updated_at);
+	`); err != nil {
+		return err
+	}
+
 	return nil
 }
