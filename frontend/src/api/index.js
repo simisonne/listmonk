@@ -113,6 +113,11 @@ export const getDashboardCharts = () => http.get(
   { loading: models.dashboard },
 );
 
+export const getDashboardEvents = (limit) => http.get(
+  '/api/dashboard/events',
+  { params: { limit }, loading: models.dashboard },
+);
+
 // Lists.
 export const getLists = (params) => http.get(
   '/api/lists',

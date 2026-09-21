@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -112,6 +113,23 @@ func (a *App) GetDashboardCharts(c echo.Context) error {
 func (a *App) GetDashboardCounts(c echo.Context) error {
 	// Get the chart data from the DB.
 	out, err := a.core.GetDashboardCounts()
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, okResp{out})
+}
+
+// GetDashboardEvents returns the recent events feed for the dashboard.
+func (a *App) GetDashboardEvents(c echo.Context) error {
+	lim := 5
+	if q := c.QueryParam("limit"); q != "" {
+		if n, err := strconv.Atoi(q); err == nil {
+			lim = n
+		}
+	}
+
+	out, err := a.core.GetDashboardEvents(lim)
 	if err != nil {
 		return err
 	}

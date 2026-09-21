@@ -13,6 +13,7 @@ import (
 type Queries struct {
 	GetDashboardCharts *sqlx.Stmt `query:"get-dashboard-charts"`
 	GetDashboardCounts *sqlx.Stmt `query:"get-dashboard-counts"`
+	GetDashboardEvents *sqlx.Stmt `query:"get-dashboard-events"`
 
 	InsertSubscriber                *sqlx.Stmt `query:"insert-subscriber"`
 	UpsertSubscriber                *sqlx.Stmt `query:"upsert-subscriber"`

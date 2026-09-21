@@ -135,6 +135,28 @@
               </div>
             </article>
           </div>
+          <div class="tile is-parent relative">
+            <b-loading v-if="isEventsLoading" active :is-full-page="false" />
+            <article class="tile is-child notification" data-cy="events">
+              <h3 class="title is-size-6">
+                {{ $t('dashboard.recentEvents') }}
+              </h3>
+              <ul v-if="visibleEvents.length" class="events">
+                <li v-for="(e, i) in visibleEvents" :key="i" class="event">
+                  <b-icon :icon="eventIcon(e.type)" size="is-small" />
+                  <span class="event-text">{{ eventText(e) }}</span>
+                  <small class="has-text-grey">{{ eventTime(e.created_at) }}</small>
+                </li>
+              </ul>
+              <p v-else-if="!isEventsLoading" class="has-text-grey">
+                {{ $t('dashboard.noEvents') }}
+              </p>
+              <a v-if="events.length > 5" href="#" class="toggle"
+                @click.prevent="eventsExpanded = !eventsExpanded">
+                {{ eventsExpanded ? $t('dashboard.showLess') : $t('dashboard.showMore') }}
+              </a>
+            </article>
+          </div>
         </div>
       </div><!-- tile block -->
       <p v-if="settings['app.cache_slow_queries']" class="has-text-grey">
@@ -150,10 +172,13 @@
 
 <script>
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import Vue from 'vue';
 import { mapState } from 'vuex';
 import { colors } from '../constants';
 import Chart from '../components/Chart.vue';
+
+dayjs.extend(relativeTime);
 
 export default Vue.extend({
   components: {
@@ -164,6 +189,9 @@ export default Vue.extend({
     return {
       isChartsLoading: true,
       isCountsLoading: true,
+      isEventsLoading: true,
+      eventsExpanded: false,
+      events: [],
       campaignViews: null,
       campaignClicks: null,
       counts: {
@@ -190,6 +218,13 @@ export default Vue.extend({
         this.campaignViews = this.makeChart(data.campaignViews);
         this.campaignClicks = this.makeChart(data.linkClicks);
       });
+
+      // Fetch the 20 newest events once; the card shows 5 until expanded.
+      this.isEventsLoading = true;
+      this.$api.getDashboardEvents(20).then((data) => {
+        this.events = data;
+        this.isEventsLoading = false;
+      });
     },
 
     makeChart(data) {
@@ -209,12 +244,56 @@ export default Vue.extend({
         ],
       };
     },
+
+    eventIcon(type) {
+      return {
+        campaign_sent: 'rocket-launch-outline',
+        open: 'email-open-outline',
+        click: 'cursor-default-click-outline',
+        optin: 'account-plus-outline',
+        site_visit: 'web',
+        track_played: 'music',
+        track_downloaded: 'download',
+      }[type] || 'bell-outline';
+    },
+
+    eventText(e) {
+      const who = e.email || e.subscriber_name || 'Someone';
+      switch (e.type) {
+        case 'campaign_sent':
+          return `Campaign sent: ${e.campaign_name || `#${e.campaign_id}`}`;
+        case 'open':
+          return `${who} opened ${e.campaign_name || 'a campaign'}`;
+        case 'click':
+          return `${who} clicked a link in ${e.campaign_name || 'a campaign'}`;
+        case 'optin':
+          return `${who} joined ${e.list_name || 'a public list'}`;
+        case 'site_visit':
+          return 'Melodies site visited';
+        case 'track_played':
+          return `Melodies track played${e.track ? `: ${e.track}` : ''}`;
+        case 'track_downloaded':
+          return `Melodies track downloaded${e.track ? `: ${e.track}` : ''}`;
+        default:
+          return e.type;
+      }
+    },
+
+    eventTime(stamp) {
+      return stamp ? dayjs(stamp).fromNow() : '';
+    },
   },
 
   computed: {
     ...mapState(['settings']),
     dayjs() {
       return dayjs;
+    },
+    visibleEvents() {
+      if (this.eventsExpanded) {
+        return this.events;
+      }
+      return this.events.slice(0, 5);
     },
   },
 
@@ -231,3 +310,26 @@ export default Vue.extend({
   },
 });
 </script>
+
+<style scoped>
+.events .event {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.events .event:last-child {
+  border-bottom: none;
+}
+.events .event-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toggle {
+  display: inline-block;
+  margin-top: 0.5rem;
+}
+</style>

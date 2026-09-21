@@ -104,6 +104,7 @@ func initHTTPHandlers(e *echo.Echo, a *App) {
 		g.GET("/api/lang/:lang", a.GetI18nLang)
 		g.GET("/api/dashboard/charts", a.GetDashboardCharts)
 		g.GET("/api/dashboard/counts", a.GetDashboardCounts)
+		g.GET("/api/dashboard/events", a.GetDashboardEvents)
 
 		g.GET("/api/settings", pm(a.GetSettings, "settings:get"))
 		g.PUT("/api/settings", pm(a.UpdateSettings, "settings:manage"))
