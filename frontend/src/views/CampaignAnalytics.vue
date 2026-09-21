@@ -105,13 +105,27 @@
           {{ props.row.links ? props.row.links.length : 0 }}
         </b-table-column>
         <template #detail="props">
-          <p class="mb-2">
-            <span class="has-text-weight-semibold">{{ $t('analytics.lastOpened') }}:</span>
-            {{ props.row.lastViewAt ? formatDateTime(props.row.lastViewAt) : $t('analytics.never') }}
-            &nbsp;&middot;&nbsp;
-            <span class="has-text-weight-semibold">{{ $t('analytics.lastClicked') }}:</span>
-            {{ props.row.lastClickAt ? formatDateTime(props.row.lastClickAt) : $t('analytics.never') }}
-          </p>
+          <div class="columns">
+            <div class="column">
+              <p class="has-text-weight-semibold mb-2">
+                {{ $t('analytics.opens') }} ({{ (props.row.openTimes || []).length }})
+              </p>
+              <ul v-if="props.row.openTimes && props.row.openTimes.length > 0">
+                <li v-for="(t, i) in props.row.openTimes" :key="i">{{ formatEventTime(t) }}</li>
+              </ul>
+              <span v-else class="has-text-grey-light">{{ $t('analytics.never') }}</span>
+            </div>
+            <div class="column">
+              <p class="has-text-weight-semibold mb-2">
+                {{ $t('analytics.clicks') }} ({{ (props.row.clickTimes || []).length }})
+              </p>
+              <ul v-if="props.row.clickTimes && props.row.clickTimes.length > 0">
+                <li v-for="(t, i) in props.row.clickTimes" :key="i">{{ formatEventTime(t) }}</li>
+              </ul>
+              <span v-else class="has-text-grey-light">{{ $t('analytics.never') }}</span>
+            </div>
+          </div>
+          <p class="has-text-weight-semibold mb-2 mt-3">{{ $t('analytics.links') }}</p>
           <ul v-if="props.row.links && props.row.links.length > 0">
             <li v-for="(l, i) in props.row.links" :key="i">
               {{ l.count }}x <a :href="l.url" target="_blank" rel="noopener noreferrer">{{ l.url }}</a>
@@ -120,7 +134,7 @@
               </span>
             </li>
           </ul>
-          <span v-else>{{ $t('analytics.noSubscriberData') }}</span>
+          <span v-else class="has-text-grey-light">{{ $t('analytics.noSubscriberData') }}</span>
         </template>
       </b-table>
     </section>
@@ -232,6 +246,10 @@ export default Vue.extend({
 
     formatDateTime(s) {
       return dayjs(s).format('YYYY-MM-DD HH:mm');
+    },
+
+    formatEventTime(s) {
+      return dayjs(s).format('YYYY-MM-DD HH:mm:ss');
     },
 
     isCampaignSelected(camp) {

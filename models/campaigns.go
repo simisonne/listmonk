@@ -113,6 +113,8 @@ type CampaignSubscriberStat struct {
 	Clicks       int            `db:"clicks" json:"clicks"`
 	LastViewAt   null.Time      `db:"last_view_at" json:"last_view_at"`
 	LastClickAt  null.Time      `db:"last_click_at" json:"last_click_at"`
+	OpenTimes    types.JSONText `db:"open_times" json:"open_times"`
+	ClickTimes   types.JSONText `db:"click_times" json:"click_times"`
 	Links        types.JSONText `db:"links" json:"links"`
 }
 

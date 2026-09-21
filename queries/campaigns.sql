@@ -331,17 +331,33 @@ link_agg AS (
         JSON_AGG(JSON_BUILD_OBJECT('url', url, 'count', count, 'last_clicked_at', last_clicked_at) ORDER BY count DESC) AS links
     FROM link_detail
     GROUP BY subscriber_id
+),
+view_times AS (
+    SELECT subscriber_id, JSON_AGG(created_at ORDER BY created_at ASC) AS open_times
+    FROM campaign_views
+    WHERE campaign_id = ANY($1)
+    GROUP BY subscriber_id
+),
+click_times AS (
+    SELECT subscriber_id, JSON_AGG(created_at ORDER BY created_at ASC) AS click_times
+    FROM link_clicks
+    WHERE campaign_id = ANY($1)
+    GROUP BY subscriber_id
 )
 SELECT s.id AS subscriber_id, s.email, s.name,
     COALESCE(v.views, 0) AS views,
     COALESCE(c.clicks, 0) AS clicks,
     v.last_view_at AS last_view_at,
     c.last_click_at AS last_click_at,
+    COALESCE(vt.open_times, '[]') AS open_times,
+    COALESCE(ct.click_times, '[]') AS click_times,
     COALESCE(l.links, '[]') AS links
 FROM recipients r
 JOIN subscribers s ON s.id = r.subscriber_id
 LEFT JOIN views v ON v.subscriber_id = s.id
 LEFT JOIN clicks c ON c.subscriber_id = s.id
+LEFT JOIN view_times vt ON vt.subscriber_id = s.id
+LEFT JOIN click_times ct ON ct.subscriber_id = s.id
 LEFT JOIN link_agg l ON l.subscriber_id = s.id
 ORDER BY clicks DESC, views DESC, s.email ASC;
 
