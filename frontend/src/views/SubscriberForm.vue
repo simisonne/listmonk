@@ -46,7 +46,7 @@
           </div>
         </div>
 
-        <b-tabs type="is-boxed" :animated="false">
+        <b-tabs type="is-boxed" :animated="false" v-model="activeTab">
           <b-tab-item :label="$t('globals.terms.lists')" label-position="on-border">
             <list-selector :label="$t('subscribers.lists')" :placeholder="$t('subscribers.listsPlaceholder')"
               :message="$t('subscribers.listsHelp')" v-model="form.lists" :selected="form.lists" :all="lists.results" />
@@ -203,6 +203,7 @@ export default Vue.extend({
       isBounceVisible: false,
       bounces: [],
       visibleMeta: {},
+      activeTab: 0,
 
       egAttribs: '{"job": "developer", "location": "Mars", "has_rocket": true}',
     };
@@ -348,6 +349,16 @@ export default Vue.extend({
         // Deep-copy the lists array on to the form.
         strAttribs: JSON.stringify(this.$props.data.attribs, null, 4),
       };
+    }
+
+    // Tabs: lists 0, subscriptions 1, bounces 2, activity 3.
+    // Deep links like ?tab=activity land straight on that tab.
+    const { tab } = this.$route.query;
+    if (this.$props.isEditing && typeof tab === 'string') {
+      const idx = ['lists', 'subscriptions', 'bounces', 'activity'].indexOf(tab);
+      if (idx !== -1) {
+        this.activeTab = idx;
+      }
     }
 
     if (this.form.id) {

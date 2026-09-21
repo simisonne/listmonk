@@ -145,7 +145,37 @@
                 <li v-for="(e, i) in visibleEvents" :key="i" class="event">
                   <small class="has-text-grey timestamp" :title="eventRelative(e.createdAt)">{{ eventTime(e.createdAt) }}</small>
                   <b-icon :icon="eventIcon(e.type)" size="is-small" />
-                  <span class="event-text">{{ eventText(e) }}</span>
+                  <span class="event-text">
+                    <template v-if="e.email && e.subscriberId && !isMelodiesEvent(e.type)">
+                      <router-link :to="{ name: 'subscriber', params: { id: e.subscriberId }, query: { tab: 'activity' } }">{{ e.email }}</router-link>
+                    </template>
+                    <template v-else-if="e.email">{{ e.email }}</template>
+                    <template v-else-if="e.subscriberName">{{ e.subscriberName }}</template>
+                    <template v-else>Someone</template>
+                    {{ ' ' }}
+                    <template v-if="e.type === 'campaign_sent'">
+                      <template v-if="e.campaignId">
+                        sent <router-link :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || `#${e.campaignId}` }}</router-link>
+                      </template>
+                      <template v-else>sent {{ e.campaignName || 'a campaign' }}</template>
+                    </template>
+                    <template v-else-if="e.type === 'open'">
+                      opened
+                      <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || 'a campaign' }}</router-link>
+                      <template v-else>{{ e.campaignName || 'a campaign' }}</template>
+                    </template>
+                    <template v-else-if="e.type === 'click'">
+                      clicked a link in
+                      <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || 'a campaign' }}</router-link>
+                      <template v-else>{{ e.campaignName || 'a campaign' }}</template>
+                    </template>
+                    <template v-else-if="e.type === 'optin'">joined {{ e.listName || 'a public list' }}</template>
+                    <template v-else-if="e.type === 'unsubscribe'">left {{ e.listName || 'a list' }}</template>
+                    <template v-else-if="e.type === 'site_visit'">visited the Melodies site</template>
+                    <template v-else-if="e.type === 'track_played'">played{{ e.track ? `: ${e.track}` : ' a track' }} on the Melodies site</template>
+                    <template v-else-if="e.type === 'track_downloaded'">downloaded{{ e.track ? `: ${e.track}` : ' a track' }} from the Melodies site</template>
+                    <template v-else>{{ e.type }}</template>
+                  </span>
                 </li>
               </ul>
               <p v-else-if="!isEventsLoading" class="has-text-grey">
@@ -263,29 +293,9 @@ export default Vue.extend({
       }[type] || 'bell-outline';
     },
 
-    eventText(e) {
-      // The API client camelCases keys: campaign_name arrives as campaignName, etc.
-      const who = e.email || e.subscriberName || 'Someone';
-      switch (e.type) {
-        case 'campaign_sent':
-          return `Campaign sent: ${e.campaignName || `#${e.campaignId}`}`;
-        case 'open':
-          return `${who} opened ${e.campaignName || 'a campaign'}`;
-        case 'click':
-          return `${who} clicked a link in ${e.campaignName || 'a campaign'}`;
-        case 'optin':
-          return `${who} joined ${e.listName || 'a public list'}`;
-        case 'unsubscribe':
-          return `${who} left ${e.listName || 'a list'}`;
-        case 'site_visit':
-          return 'Melodies site visited';
-        case 'track_played':
-          return `Melodies track played${e.track ? `: ${e.track}` : ''}`;
-        case 'track_downloaded':
-          return `Melodies track downloaded${e.track ? `: ${e.track}` : ''}`;
-        default:
-          return e.type;
-      }
+    // Melodies site events stay as plain text: nothing in them is clickable.
+    isMelodiesEvent(type) {
+      return ['site_visit', 'track_played', 'track_downloaded'].indexOf(type) !== -1;
     },
 
     eventTime(stamp) {
