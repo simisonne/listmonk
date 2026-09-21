@@ -630,13 +630,10 @@ func (a *App) GetCampaignViewAnalytics(c echo.Context) error {
 		from = c.QueryParams().Get("from")
 		to   = c.QueryParams().Get("to")
 	)
-	if !strHasLen(from, 10, 30) || !strHasLen(to, 10, 30) {
-		return echo.NewHTTPError(http.StatusBadRequest, a.i18n.T("analytics.invalidDates"))
-	}
-
-	// Campaign link stats.
-	if typ == "links" {
-		out, err := a.core.GetCampaignAnalyticsLinks(ids, typ, from, to)
+	// Per subscriber engagement stats. This report has no date range, so it is
+	// handled before the from/to validation that the other analytics types need.
+	if typ == "subscribers" {
+		out, err := a.core.GetCampaignSubscriberStats(ids)
 		if err != nil {
 			return err
 		}
@@ -644,9 +641,13 @@ func (a *App) GetCampaignViewAnalytics(c echo.Context) error {
 		return c.JSON(http.StatusOK, okResp{out})
 	}
 
-	// Per subscriber engagement stats (no date range, whole campaign).
-	if typ == "subscribers" {
-		out, err := a.core.GetCampaignSubscriberStats(ids)
+	if !strHasLen(from, 10, 30) || !strHasLen(to, 10, 30) {
+		return echo.NewHTTPError(http.StatusBadRequest, a.i18n.T("analytics.invalidDates"))
+	}
+
+	// Campaign link stats.
+	if typ == "links" {
+		out, err := a.core.GetCampaignAnalyticsLinks(ids, typ, from, to)
 		if err != nil {
 			return err
 		}
