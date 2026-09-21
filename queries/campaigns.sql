@@ -323,7 +323,7 @@ JOIN subscribers s ON s.id = r.subscriber_id
 LEFT JOIN views v ON v.subscriber_id = s.id
 LEFT JOIN clicks c ON c.subscriber_id = s.id
 LEFT JOIN link_agg l ON l.subscriber_id = s.id
-ORDER BY views DESC, clicks DESC, s.email ASC;
+ORDER BY clicks DESC, views DESC, s.email ASC;
 
 -- name: export-campaign-views
 SELECT campaign_views.campaign_id,

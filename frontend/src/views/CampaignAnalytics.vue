@@ -23,6 +23,11 @@
               :before-adding="isCampaignSelected" @typing="queryCampaigns" @focus="queryCampaigns" field="name"
               :loading="isSearchLoading" />
           </b-field>
+          <b-button class="mt-2" size="is-small" icon-left="format-list-bulleted"
+            :loading="isAllCampaignsLoading" :disabled="isAllCampaignsLoading" data-cy="btn-all-campaigns"
+            @click="loadAllCampaigns">
+            {{ $t('analytics.allCampaigns') }}
+          </b-button>
         </div>
 
         <div class="column is-5">
@@ -139,6 +144,7 @@ export default Vue.extend({
   data() {
     return {
       isSearchLoading: false,
+      isAllCampaignsLoading: false,
       queriedCampaigns: [],
 
       // Data for each view.
@@ -344,6 +350,60 @@ export default Vue.extend({
         this.subLoading = false;
       });
     },
+
+    // Run the analytics fetches for the campaigns currently in the selector.
+    // This is the same path the mounted() ?id flow uses.
+    runAnalytics() {
+      this.$nextTick(() => {
+        // Fetch count for each analytics type (views, counts, bounces);
+        Object.keys(this.charts).forEach((k) => {
+          this.charts[k].data = null;
+          this.charts[k].donutData = null;
+
+          // Fetch views, clicks, bounces for every campaign.
+          this.getData(k, this.form.campaigns);
+        });
+
+        // Fetch per subscriber engagement for the selected campaigns.
+        this.getSubscriberData(this.form.campaigns);
+      });
+    },
+
+    // Load every campaign, walking through all pages of the campaigns API,
+    // into the selector and run the analytics fetches over all of them.
+    async loadAllCampaigns() {
+      this.isAllCampaignsLoading = true;
+      try {
+        const perPage = 50;
+        const fetchPage = async (page, acc) => {
+          const data = await this.$api.getCampaigns({
+            page,
+            per_page: perPage,
+            order_by: 'created_at',
+            order: 'DESC',
+          });
+
+          const results = data.results || [];
+          const collected = acc.concat(results);
+          const total = data.total || collected.length;
+
+          // Keep going until every campaign has been fetched.
+          if (results.length === 0 || collected.length >= total) {
+            return collected;
+          }
+          return fetchPage(page + 1, collected);
+        };
+
+        const allCamps = await fetchPage(1, []);
+
+        // Shallow copy and prefix the names with the campaign IDs as the
+        // auto suggest results do, without mutating the shared store objects.
+        this.form.campaigns = allCamps.map((c) => ({ ...c, name: `#${c.id}: ${c.name}` }));
+        this.runAnalytics();
+      } finally {
+        this.isAllCampaignsLoading = false;
+      }
+    },
   },
 
   computed: {
@@ -397,18 +457,7 @@ export default Vue.extend({
 
         this.$nextTick(() => {
           this.isSearchLoading = false;
-
-          // Fetch count for each analytics type (views, counts, bounces);
-          Object.keys(this.charts).forEach((k) => {
-            this.charts[k].data = null;
-            this.charts[k].donutData = null;
-
-            // Fetch views, clicks, bounces for every campaign.
-            this.getData(k, this.form.campaigns);
-          });
-
-          // Fetch per subscriber engagement for the selected campaigns.
-          this.getSubscriberData(this.form.campaigns);
+          this.runAnalytics();
         });
       });
     }

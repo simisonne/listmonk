@@ -2,6 +2,7 @@
     "_.code": "en",
     "_.name": "English (en)",
     "admin.errorMarshallingConfig": "Error marshalling config: {error}",
+    "analytics.allCampaigns": "All campaigns",
     "analytics.count": "Count",
     "analytics.fromDate": "From",
     "analytics.invalidDates": "Invalid `from` or `to` dates.",
