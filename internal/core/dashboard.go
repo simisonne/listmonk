@@ -112,7 +112,7 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 			continue
 		}
 
-		ts, err := time.Parse("2006-01-02 15:04:05", m[1])
+		ts, err := time.ParseInLocation("2006-01-02 15:04:05", m[1], time.Local)
 		if err != nil {
 			continue
 		}
