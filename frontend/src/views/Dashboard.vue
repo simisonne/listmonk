@@ -194,6 +194,7 @@ export default Vue.extend({
       events: [],
       campaignViews: null,
       campaignClicks: null,
+      refreshTimer: null,
       counts: {
         lists: {},
         subscribers: {},
@@ -204,9 +205,11 @@ export default Vue.extend({
   },
 
   methods: {
-    fetchData() {
-      this.isCountsLoading = true;
-      this.isChartsLoading = true;
+    fetchData(quiet) {
+      if (!quiet) {
+        this.isCountsLoading = true;
+        this.isChartsLoading = true;
+      }
 
       this.$api.getDashboardCounts().then((data) => {
         this.counts = data;
@@ -220,7 +223,9 @@ export default Vue.extend({
       });
 
       // Fetch the 20 newest events once; the card shows 5 until expanded.
-      this.isEventsLoading = true;
+      if (!quiet) {
+        this.isEventsLoading = true;
+      }
       this.$api.getDashboardEvents(20).then((data) => {
         this.events = data;
         this.isEventsLoading = false;
@@ -290,6 +295,33 @@ export default Vue.extend({
     eventRelative(stamp) {
       return stamp ? dayjs(stamp).fromNow() : '';
     },
+
+    manualRefresh() {
+      this.fetchData();
+    },
+
+    startAutoRefresh() {
+      this.stopAutoRefresh();
+      this.refreshTimer = setInterval(() => {
+        if (document.hidden) {
+          return;
+        }
+        this.fetchData(true);
+      }, 60000);
+    },
+
+    stopAutoRefresh() {
+      if (this.refreshTimer) {
+        clearInterval(this.refreshTimer);
+        this.refreshTimer = null;
+      }
+    },
+
+    onVisibilityChange() {
+      if (!document.hidden) {
+        this.fetchData(true);
+      }
+    },
   },
 
   computed: {
@@ -306,15 +338,19 @@ export default Vue.extend({
   },
 
   created() {
-    this.$root.$on('page.refresh', this.fetchData);
+    this.$root.$on('page.refresh', this.manualRefresh);
   },
 
   destroyed() {
-    this.$root.$off('page.refresh', this.fetchData);
+    this.$root.$off('page.refresh', this.manualRefresh);
+    this.stopAutoRefresh();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
   },
 
   mounted() {
     this.fetchData();
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    this.startAutoRefresh();
   },
 });
 </script>
