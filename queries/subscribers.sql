@@ -415,10 +415,21 @@ subs AS (
     WHERE subscriber_lists.subscriber_id = (SELECT id FROM prof)
 ),
 views AS (
-    SELECT subject as campaign, COUNT(subscriber_id) as views FROM campaign_views
-        LEFT JOIN campaigns ON (campaigns.id = campaign_views.campaign_id)
-        WHERE subscriber_id = (SELECT id FROM prof)
-        GROUP BY campaigns.id ORDER BY campaigns.id
+    SELECT c.subject as campaign, COUNT(v.subscriber_id) as views
+    FROM campaign_views v
+    LEFT JOIN campaigns c ON (c.id = v.campaign_id)
+    WHERE v.subscriber_id = (SELECT id FROM prof)
+    -- Scanner filter: same rule as queries/campaigns.sql (get-campaign-stats).
+    AND NOT (v.subscriber_id IS NOT NULL
+        AND c.started_at IS NOT NULL
+        AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+        AND NOT EXISTS (
+            SELECT 1 FROM campaign_views earlier
+            WHERE earlier.campaign_id = v.campaign_id
+            AND earlier.subscriber_id = v.subscriber_id
+            AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+        ))
+    GROUP BY c.id ORDER BY c.id
 ),
 clicks AS (
     SELECT url, COUNT(subscriber_id) as clicks FROM link_clicks
@@ -442,10 +453,21 @@ WITH views AS (
         c.name,
         c.subject,
         COUNT(*) as view_count,
-        MAX(cv.created_at) as last_viewed_at
-    FROM campaign_views cv
-    LEFT JOIN campaigns c ON c.id = cv.campaign_id
-    WHERE cv.subscriber_id = $1
+        MAX(v.created_at) as last_viewed_at
+    FROM campaign_views v
+    LEFT JOIN campaigns c ON c.id = v.campaign_id
+    WHERE v.subscriber_id = $1
+    -- Scanner filter: same rule as queries/campaigns.sql (get-campaign-stats).
+    -- Without it the Activity tab shows mail-gateway prefetches as subscriber opens.
+    AND NOT (v.subscriber_id IS NOT NULL
+        AND c.started_at IS NOT NULL
+        AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+        AND NOT EXISTS (
+            SELECT 1 FROM campaign_views earlier
+            WHERE earlier.campaign_id = v.campaign_id
+            AND earlier.subscriber_id = v.subscriber_id
+            AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+        ))
     GROUP BY c.id, c.uuid, c.name, c.subject
     ORDER BY last_viewed_at DESC
 ),

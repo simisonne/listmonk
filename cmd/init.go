@@ -410,13 +410,30 @@ func prepareQueries(qMap goyesql.Queries, db *sqlx.DB, ko *koanf.Koanf) *models.
 		linkSel = "DISTINCT subscriber_id"
 	}
 
+	// scannerViewFilter is appended to the analytics count templates when they run
+	// against `campaign_views` (empty for `link_clicks`). It is the canonical
+	// fragment documented in queries/campaigns.sql (get-campaign-stats): the
+	// earliest view of a (campaign, subscriber) pair inside the 4 minutes after
+	// campaigns.started_at is mail-gateway scanner noise and is ignored. Views with
+	// a NULL subscriber, campaigns that never started, and any later view count.
+	const scannerViewFilter = `
+    AND NOT (v.subscriber_id IS NOT NULL
+        AND c.started_at IS NOT NULL
+        AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+        AND NOT EXISTS (
+            SELECT 1 FROM campaign_views earlier
+            WHERE earlier.campaign_id = v.campaign_id
+            AND earlier.subscriber_id = v.subscriber_id
+            AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+        ))`
+
 	// These don't exist in the SQL file but are in the queries struct to be prepared.
 	qMap["get-campaign-view-counts"] = &goyesql.Query{
-		Query: fmt.Sprintf(qMap[countQuery].Query, "campaign_views"),
+		Query: fmt.Sprintf(qMap[countQuery].Query, "campaign_views", scannerViewFilter),
 		Tags:  map[string]string{"name": "get-campaign-view-counts"},
 	}
 	qMap["get-campaign-click-counts"] = &goyesql.Query{
-		Query: fmt.Sprintf(qMap[countQuery].Query, "link_clicks"),
+		Query: fmt.Sprintf(qMap[countQuery].Query, "link_clicks", ""),
 		Tags:  map[string]string{"name": "get-campaign-click-counts"},
 	}
 	qMap["get-campaign-link-counts"].Query = fmt.Sprintf(qMap["get-campaign-link-counts"].Query, linkSel)

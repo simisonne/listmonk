@@ -112,6 +112,25 @@ SELECT COUNT(*) OVER () AS total, campaigns.*,
 -- The query returns results in the same order as the given campaign IDs, and for non-existent campaign IDs,
 -- the query still returns a row with 0 values. Thus, for lazy loading, the application simply iterate on the results in
 -- the same order as the list of campaigns it would've queried and attach the results.
+--
+-- CANONICAL SCANNER-VIEW FILTER (copy verbatim, `v` = campaign_views row, `c` = campaigns row):
+-- a view is automated scanner noise when it is the EARLIEST view of its
+-- (campaign_id, subscriber_id) pair and it landed within 4 minutes of campaigns.started_at:
+--
+--     AND NOT (v.subscriber_id IS NOT NULL
+--         AND c.started_at IS NOT NULL
+--         AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+--         AND NOT EXISTS (
+--             SELECT 1 FROM campaign_views earlier
+--             WHERE earlier.campaign_id = v.campaign_id
+--             AND earlier.subscriber_id = v.subscriber_id
+--             AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+--         ))
+--
+-- Views with a NULL subscriber_id always count. A second (or later) view inside the
+-- same 4 minute window always counts. The same rule is enforced on the write path in
+-- `register-campaign-view` and cleaned up once in internal/migrations/v6.3.0.go.
+-- `export-campaign-views` is deliberately left raw: exports are a faithful record.
 WITH lists AS (
     SELECT campaign_id, JSON_AGG(JSON_BUILD_OBJECT('id', list_id, 'name', list_name)) AS lists FROM campaign_lists
     WHERE campaign_id = ANY($1) GROUP BY campaign_id
@@ -121,9 +140,21 @@ media AS (
     WHERE campaign_id = ANY($1) GROUP BY campaign_id
 ),
 views AS (
-    SELECT campaign_id, COUNT(campaign_id) as num FROM campaign_views
-    WHERE campaign_id = ANY($1)
-    GROUP BY campaign_id
+    SELECT v.campaign_id, COUNT(v.campaign_id) as num
+    FROM campaign_views v
+    JOIN campaigns c ON (c.id = v.campaign_id)
+    WHERE v.campaign_id = ANY($1)
+    -- Scanner filter: see get-campaign-stats above for the canonical fragment.
+    AND NOT (v.subscriber_id IS NOT NULL
+        AND c.started_at IS NOT NULL
+        AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+        AND NOT EXISTS (
+            SELECT 1 FROM campaign_views earlier
+            WHERE earlier.campaign_id = v.campaign_id
+            AND earlier.subscriber_id = v.subscriber_id
+            AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+        ))
+    GROUP BY v.campaign_id
 ),
 clicks AS (
     SELECT campaign_id, COUNT(campaign_id) as num FROM link_clicks
@@ -232,29 +263,36 @@ u AS (
 SELECT camps.*, campMedia.media_id FROM camps LEFT JOIN campMedia ON (campMedia.campaign_id = camps.id);
 
 -- name: get-campaign-analytics-unique-counts
+-- Two placeholders: the first is the source table (`campaign_views` or `link_clicks`),
+-- the second is the scanner-view exclusion, which applies to `campaign_views` only
+-- (empty for `link_clicks`). See cmd/init.go prepareQueries().
 WITH intval AS (
     -- For intervals < a week, aggregate counts hourly, otherwise daily.
     SELECT CASE WHEN (EXTRACT (EPOCH FROM ($3::TIMESTAMP - $2::TIMESTAMP)) / 86400) >= 7 THEN 'day' ELSE 'hour' END
 ),
 uniqIDs AS (
-    SELECT DISTINCT ON(subscriber_id, campaign_id) subscriber_id, campaign_id, DATE_TRUNC((SELECT * FROM intval), created_at) AS "timestamp"
-    FROM %s
-    WHERE campaign_id=ANY($1) AND created_at >= $2 AND created_at <= $3
-    ORDER BY subscriber_id, campaign_id, "timestamp"
+    SELECT DISTINCT ON(v.subscriber_id, v.campaign_id) v.subscriber_id, v.campaign_id, DATE_TRUNC((SELECT * FROM intval), v.created_at) AS "timestamp"
+    FROM %s v
+    LEFT JOIN campaigns c ON (c.id = v.campaign_id)
+    WHERE v.campaign_id=ANY($1) AND v.created_at >= $2 AND v.created_at <= $3%s
+    ORDER BY v.subscriber_id, v.campaign_id, "timestamp"
 )
 SELECT COUNT(*) AS "count", campaign_id, "timestamp"
     FROM uniqIDs GROUP BY campaign_id, "timestamp" ORDER BY "timestamp" ASC;
 
 -- name: get-campaign-analytics-counts
 -- raw: true
+-- Two placeholders: the source table and the scanner-view exclusion (same as
+-- get-campaign-analytics-unique-counts above).
 WITH intval AS (
     -- For intervals < a week, aggregate counts hourly, otherwise daily.
     SELECT CASE WHEN (EXTRACT (EPOCH FROM ($3::TIMESTAMP - $2::TIMESTAMP)) / 86400) >= 7 THEN 'day' ELSE 'hour' END
 )
-SELECT campaign_id, COUNT(*) AS "count", DATE_TRUNC((SELECT * FROM intval), created_at) AS "timestamp"
-    FROM %s
-    WHERE campaign_id=ANY($1) AND created_at >= $2 AND created_at <= $3
-    GROUP BY campaign_id, "timestamp" ORDER BY "timestamp" ASC;
+SELECT v.campaign_id, COUNT(*) AS "count", DATE_TRUNC((SELECT * FROM intval), v.created_at) AS "timestamp"
+    FROM %s v
+    LEFT JOIN campaigns c ON (c.id = v.campaign_id)
+    WHERE v.campaign_id=ANY($1) AND v.created_at >= $2 AND v.created_at <= $3%s
+    GROUP BY v.campaign_id, "timestamp" ORDER BY "timestamp" ASC;
 
 -- name: get-campaign-bounce-counts
 WITH intval AS (
@@ -299,7 +337,20 @@ WITH recipients AS (
     -- subscribers with recorded engagement on those campaigns.
     SELECT DISTINCT e.subscriber_id
     FROM (
-        SELECT campaign_id, subscriber_id FROM campaign_views WHERE campaign_id = ANY($1)
+        SELECT v.campaign_id, v.subscriber_id
+        FROM campaign_views v
+        JOIN campaigns c ON (c.id = v.campaign_id)
+        WHERE v.campaign_id = ANY($1)
+        -- Scanner filter: see get-campaign-stats for the canonical fragment.
+        AND NOT (v.subscriber_id IS NOT NULL
+            AND c.started_at IS NOT NULL
+            AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+            AND NOT EXISTS (
+                SELECT 1 FROM campaign_views earlier
+                WHERE earlier.campaign_id = v.campaign_id
+                AND earlier.subscriber_id = v.subscriber_id
+                AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+            ))
         UNION
         SELECT campaign_id, subscriber_id FROM link_clicks WHERE campaign_id = ANY($1)
     ) e
@@ -308,10 +359,21 @@ WITH recipients AS (
     WHERE e.subscriber_id IS NOT NULL
 ),
 views AS (
-    SELECT subscriber_id, COUNT(*) AS views, MAX(created_at) AS last_view_at
-    FROM campaign_views
-    WHERE campaign_id = ANY($1)
-    GROUP BY subscriber_id
+    SELECT v.subscriber_id, COUNT(*) AS views, MAX(v.created_at) AS last_view_at
+    FROM campaign_views v
+    JOIN campaigns c ON (c.id = v.campaign_id)
+    WHERE v.campaign_id = ANY($1)
+    -- Scanner filter: see get-campaign-stats for the canonical fragment.
+    AND NOT (v.subscriber_id IS NOT NULL
+        AND c.started_at IS NOT NULL
+        AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+        AND NOT EXISTS (
+            SELECT 1 FROM campaign_views earlier
+            WHERE earlier.campaign_id = v.campaign_id
+            AND earlier.subscriber_id = v.subscriber_id
+            AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+        ))
+    GROUP BY v.subscriber_id
 ),
 clicks AS (
     SELECT subscriber_id, COUNT(*) AS clicks, MAX(created_at) AS last_click_at
@@ -333,10 +395,21 @@ link_agg AS (
     GROUP BY subscriber_id
 ),
 view_times AS (
-    SELECT subscriber_id, JSON_AGG(created_at ORDER BY created_at ASC) AS open_times
-    FROM campaign_views
-    WHERE campaign_id = ANY($1)
-    GROUP BY subscriber_id
+    SELECT v.subscriber_id, JSON_AGG(v.created_at ORDER BY v.created_at ASC) AS open_times
+    FROM campaign_views v
+    JOIN campaigns c ON (c.id = v.campaign_id)
+    WHERE v.campaign_id = ANY($1)
+    -- Scanner filter: see get-campaign-stats for the canonical fragment.
+    AND NOT (v.subscriber_id IS NOT NULL
+        AND c.started_at IS NOT NULL
+        AND v.created_at <= c.started_at + INTERVAL '4 minutes'
+        AND NOT EXISTS (
+            SELECT 1 FROM campaign_views earlier
+            WHERE earlier.campaign_id = v.campaign_id
+            AND earlier.subscriber_id = v.subscriber_id
+            AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
+        ))
+    GROUP BY v.subscriber_id
 ),
 click_times AS (
     SELECT subscriber_id, JSON_AGG(created_at ORDER BY created_at ASC) AS click_times
@@ -362,6 +435,8 @@ LEFT JOIN link_agg l ON l.subscriber_id = s.id
 ORDER BY clicks DESC, views DESC, s.email ASC;
 
 -- name: export-campaign-views
+-- Intentionally NOT filtered by the scanner-view rule: exports are a faithful
+-- record of everything that was recorded, scanner noise included.
 SELECT campaign_views.campaign_id,
        COALESCE(campaigns.uuid::TEXT, '') AS campaign_uuid,
        COALESCE(campaigns.name, '') AS campaign_name,
@@ -570,11 +645,26 @@ AND (
 );
 
 -- name: register-campaign-view
+-- Records a campaign view. Automated scanner opens (mail gateways prefetching the
+-- tracking pixel as soon as the send starts) are not recorded at all: the earliest
+-- view of a (campaign, subscriber) pair that lands within 4 minutes of
+-- campaigns.started_at is dropped here, before it ever hits the table. Views with an
+-- unknown subscriber, campaigns that never started, and any second view inside the
+-- same window are always recorded. Same rule as the reads; see get-campaign-stats.
 WITH view AS (
-    SELECT campaigns.id as campaign_id, subscribers.id AS subscriber_id FROM campaigns
+    SELECT campaigns.id as campaign_id, campaigns.started_at AS started_at,
+        subscribers.id AS subscriber_id FROM campaigns
     LEFT JOIN subscribers ON (CASE WHEN $2::TEXT != '' THEN subscribers.uuid = $2::UUID ELSE FALSE END)
     WHERE campaigns.uuid = $1
 )
 INSERT INTO campaign_views (campaign_id, subscriber_id)
-    VALUES((SELECT campaign_id FROM view), (SELECT subscriber_id FROM view));
+SELECT v.campaign_id, v.subscriber_id FROM view v
+WHERE NOT (v.subscriber_id IS NOT NULL
+    AND v.started_at IS NOT NULL
+    AND NOW() <= v.started_at + INTERVAL '4 minutes'
+    AND NOT EXISTS (
+        SELECT 1 FROM campaign_views earlier
+        WHERE earlier.campaign_id = v.campaign_id
+        AND earlier.subscriber_id = v.subscriber_id
+    ));
 
