@@ -33,6 +33,13 @@ SELECT * FROM (
     JOIN lists l ON l.id = sl.list_id
     JOIN subscribers s ON s.id = sl.subscriber_id
     WHERE l.type = 'public' AND sl.status != 'unsubscribed'
+    UNION ALL
+    SELECT 'unsubscribe', sl.updated_at, NULL, NULL,
+        sl.subscriber_id, s.email, s.name, l.name, NULL, NULL
+    FROM subscriber_lists sl
+    JOIN lists l ON l.id = sl.list_id
+    JOIN subscribers s ON s.id = sl.subscriber_id
+    WHERE sl.status = 'unsubscribed'
 ) e ORDER BY created_at DESC LIMIT $1;
 
 -- name: get-settings

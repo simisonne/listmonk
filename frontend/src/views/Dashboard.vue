@@ -143,9 +143,9 @@
               </h3>
               <ul v-if="visibleEvents.length" class="events">
                 <li v-for="(e, i) in visibleEvents" :key="i" class="event">
+                  <small class="has-text-grey timestamp" :title="eventRelative(e.created_at)">{{ eventTime(e.created_at) }}</small>
                   <b-icon :icon="eventIcon(e.type)" size="is-small" />
                   <span class="event-text">{{ eventText(e) }}</span>
-                  <small class="has-text-grey" :title="eventRelative(e.created_at)">{{ eventTime(e.created_at) }}</small>
                 </li>
               </ul>
               <p v-else-if="!isEventsLoading" class="has-text-grey">
@@ -251,6 +251,7 @@ export default Vue.extend({
         open: 'email-open-outline',
         click: 'cursor-default-click-outline',
         optin: 'account-plus-outline',
+        unsubscribe: 'account-minus-outline',
         site_visit: 'web',
         track_played: 'music',
         track_downloaded: 'download',
@@ -268,6 +269,8 @@ export default Vue.extend({
           return `${who} clicked ${this.linkHost(e.url)}in ${e.campaign_name || 'a campaign'}`;
         case 'optin':
           return `${who} joined ${e.list_name || 'a public list'}`;
+        case 'unsubscribe':
+          return `${who} left ${e.list_name || 'a list'}`;
         case 'site_visit':
           return 'Melodies site visited';
         case 'track_played':
@@ -341,6 +344,9 @@ export default Vue.extend({
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.events .timestamp {
   white-space: nowrap;
 }
 .toggle {
