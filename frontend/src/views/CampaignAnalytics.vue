@@ -66,6 +66,49 @@
         </div>
       </div>
     </section>
+
+    <section v-if="form.campaigns.length > 0" class="subscriber-stats mt-6">
+      <hr />
+      <h4>
+        {{ $t('analytics.subscribers') }}
+        <span class="has-text-grey-light">({{ subscribers.length }} {{ $t('analytics.recipients') }})</span>
+      </h4>
+      <p v-if="!subLoading && subscribers.length > 0" class="mb-3">
+        {{ subSummary.openers }} {{ $t('analytics.opened') }},
+        {{ subSummary.clickers }} {{ $t('analytics.clicked') }},
+        {{ subSummary.neverOpened }} {{ $t('analytics.neverOpened') }}
+      </p>
+      <b-field>
+        <b-input v-model="subFilter" :placeholder="$t('analytics.searchSubscribers')" icon="magnify" />
+      </b-field>
+      <b-table :data="filteredSubscribers" :loading="subLoading" paginated :per-page="25"
+        detailed detail-key="subscriber_id" :show-detail-icon="true"
+        :empty-label="$t('analytics.noSubscriberData')">
+        <b-table-column v-slot="props" field="email" :label="$t('subscribers.email')" sortable searchable>
+          {{ props.row.email }}
+        </b-table-column>
+        <b-table-column v-slot="props" field="name" :label="$t('globals.fields.name')" sortable>
+          {{ props.row.name }}
+        </b-table-column>
+        <b-table-column v-slot="props" field="views" :label="$t('campaigns.views')" sortable numeric>
+          {{ props.row.views }}
+        </b-table-column>
+        <b-table-column v-slot="props" field="clicks" :label="$t('campaigns.clicks')" sortable numeric>
+          {{ props.row.clicks }}
+        </b-table-column>
+        <b-table-column v-slot="props" field="links" :label="$t('analytics.links')" sortable numeric>
+          {{ props.row.links ? props.row.links.length : 0 }}
+        </b-table-column>
+        <template #detail="props">
+          <ul v-if="props.row.links && props.row.links.length > 0">
+            <li v-for="(l, i) in props.row.links" :key="i">
+              {{ l.count }}x <a :href="l.url" target="_blank" rel="noopener noreferrer">{{ l.url }}</a>
+            </li>
+          </ul>
+          <span v-else>{{ $t('analytics.noSubscriberData') }}</span>
+        </template>
+      </b-table>
+    </section>
   </section>
 </template>
 
@@ -106,6 +149,9 @@ export default Vue.extend({
         links: 0,
       },
       urls: [],
+      subscribers: [],
+      subLoading: false,
+      subFilter: '',
       charts: {
         views: {
           name: this.$t('campaigns.views'),
@@ -288,10 +334,39 @@ export default Vue.extend({
         window.open(this.urls[bars[0].index], '_blank', 'noopener noreferrer');
       }
     },
+
+    getSubscriberData(camps) {
+      this.subLoading = true;
+      this.$api.getCampaignSubscriberStats({
+        id: camps.map((c) => c.id),
+      }).then((data) => {
+        this.subscribers = data;
+        this.subLoading = false;
+      });
+    },
   },
 
   computed: {
     ...mapState(['serverConfig']),
+
+    filteredSubscribers() {
+      const q = this.subFilter.trim().toLowerCase();
+      if (!q) {
+        return this.subscribers;
+      }
+      return this.subscribers.filter((s) => (
+        (s.email && s.email.toLowerCase().includes(q))
+        || (s.name && s.name.toLowerCase().includes(q))
+      ));
+    },
+
+    subSummary() {
+      return {
+        openers: this.subscribers.filter((s) => s.views > 0).length,
+        clickers: this.subscribers.filter((s) => s.clicks > 0).length,
+        neverOpened: this.subscribers.filter((s) => s.views === 0).length,
+      };
+    },
   },
 
   created() {
@@ -331,6 +406,9 @@ export default Vue.extend({
             // Fetch views, clicks, bounces for every campaign.
             this.getData(k, this.form.campaigns);
           });
+
+          // Fetch per subscriber engagement for the selected campaigns.
+          this.getSubscriberData(this.form.campaigns);
         });
       });
     }

@@ -421,6 +421,19 @@ func (c *Core) GetCampaignAnalyticsLinks(campIDs []int, typ, fromDate, toDate st
 	return out, nil
 }
 
+// GetCampaignSubscriberStats returns per subscriber engagement (opens,
+// clicks, per link clicks) for the given campaign IDs.
+func (c *Core) GetCampaignSubscriberStats(campIDs []int) ([]models.CampaignSubscriberStat, error) {
+	out := []models.CampaignSubscriberStat{}
+	if err := c.q.GetCampaignSubscriberStats.Select(&out, pq.Array(campIDs)); err != nil {
+		c.log.Printf("error fetching campaign subscriber stats: %v", err)
+		return nil, echo.NewHTTPError(http.StatusInternalServerError,
+			c.i18n.Ts("globals.messages.errorFetching", "name", "{globals.terms.analytics}", "error", pqErrMsg(err)))
+	}
+
+	return out, nil
+}
+
 // RegisterCampaignView registers a subscriber's view on a campaign.
 func (c *Core) RegisterCampaignView(campUUID, subUUID string) error {
 	if _, err := c.q.RegisterCampaignView.Exec(campUUID, subUUID); err != nil {

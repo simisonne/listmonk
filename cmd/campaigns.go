@@ -644,6 +644,16 @@ func (a *App) GetCampaignViewAnalytics(c echo.Context) error {
 		return c.JSON(http.StatusOK, okResp{out})
 	}
 
+	// Per subscriber engagement stats (no date range, whole campaign).
+	if typ == "subscribers" {
+		out, err := a.core.GetCampaignSubscriberStats(ids)
+		if err != nil {
+			return err
+		}
+
+		return c.JSON(http.StatusOK, okResp{out})
+	}
+
 	// Get the analytics numbers from the DB for the campaigns.
 	out, err := a.core.GetCampaignAnalyticsCounts(ids, typ, from, to)
 	if err != nil {

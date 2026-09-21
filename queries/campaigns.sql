@@ -275,6 +275,56 @@ SELECT COUNT(%s) AS "count", url
     WHERE campaign_id=ANY($1) AND link_clicks.created_at >= $2 AND link_clicks.created_at <= $3
     GROUP BY links.url ORDER BY "count" DESC LIMIT 50;
 
+-- name: get-campaign-subscriber-stats
+-- Per subscriber engagement for the given campaigns: opens, clicks and
+-- per link click counts. Recipients are the current members of the
+-- campaigns' lists, so "never opened" is approximate when lists changed
+-- after the send.
+WITH recipients AS (
+    SELECT DISTINCT sl.subscriber_id
+    FROM campaign_lists cl
+    JOIN subscriber_lists sl ON sl.list_id = cl.list_id
+    JOIN subscribers s ON s.id = sl.subscriber_id
+    WHERE cl.campaign_id = ANY($1)
+    AND sl.status != 'unsubscribed'
+    AND s.status != 'blocklisted'
+),
+views AS (
+    SELECT subscriber_id, COUNT(*) AS views
+    FROM campaign_views
+    WHERE campaign_id = ANY($1)
+    GROUP BY subscriber_id
+),
+clicks AS (
+    SELECT subscriber_id, COUNT(*) AS clicks
+    FROM link_clicks
+    WHERE campaign_id = ANY($1)
+    GROUP BY subscriber_id
+),
+link_detail AS (
+    SELECT lc.subscriber_id, links.url, COUNT(*) AS count
+    FROM link_clicks lc
+    JOIN links ON links.id = lc.link_id
+    WHERE lc.campaign_id = ANY($1)
+    GROUP BY lc.subscriber_id, links.url
+),
+link_agg AS (
+    SELECT subscriber_id,
+        JSON_AGG(JSON_BUILD_OBJECT('url', url, 'count', count) ORDER BY count DESC) AS links
+    FROM link_detail
+    GROUP BY subscriber_id
+)
+SELECT s.id AS subscriber_id, s.email, s.name,
+    COALESCE(v.views, 0) AS views,
+    COALESCE(c.clicks, 0) AS clicks,
+    COALESCE(l.links, '[]') AS links
+FROM recipients r
+JOIN subscribers s ON s.id = r.subscriber_id
+LEFT JOIN views v ON v.subscriber_id = s.id
+LEFT JOIN clicks c ON c.subscriber_id = s.id
+LEFT JOIN link_agg l ON l.subscriber_id = s.id
+ORDER BY views DESC, clicks DESC, s.email ASC;
+
 -- name: export-campaign-views
 SELECT campaign_views.campaign_id,
        COALESCE(campaigns.uuid::TEXT, '') AS campaign_uuid,

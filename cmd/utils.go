@@ -21,13 +21,14 @@ func inArray(val string, vals []string) (ok bool) {
 }
 
 // makeFilename sanitizes a filename (user supplied upload filenames).
+// Spaces are kept as is, only trimmed and collapsed.
 func makeFilename(fName string) string {
 	name := strings.TrimSpace(fName)
 	if name == "" {
 		name, _ = generateRandomString(10)
 	}
-	// replace whitespace with "-"
-	name = regexpSpaces.ReplaceAllString(name, "-")
+	// collapse whitespace runs to a single space, keep spaces in the name
+	name = regexpSpaces.ReplaceAllString(name, " ")
 	return filepath.Base(name)
 }
 

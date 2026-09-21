@@ -102,6 +102,17 @@ type CampaignMeta struct {
 	Sent      int       `db:"sent" json:"sent"`
 }
 
+// CampaignSubscriberStat is one row of the per subscriber engagement
+// report: opens, clicks and per link click counts for a subscriber.
+type CampaignSubscriberStat struct {
+	SubscriberID int            `db:"subscriber_id" json:"subscriber_id"`
+	Email        string         `db:"email" json:"email"`
+	Name         string         `db:"name" json:"name"`
+	Views        int            `db:"views" json:"views"`
+	Clicks       int            `db:"clicks" json:"clicks"`
+	Links        types.JSONText `db:"links" json:"links"`
+}
+
 // GetIDs returns the list of campaign IDs.
 func (camps Campaigns) GetIDs() []int {
 	IDs := make([]int, len(camps))
