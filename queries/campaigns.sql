@@ -144,7 +144,7 @@ views AS (
     FROM campaign_views v
     JOIN campaigns c ON (c.id = v.campaign_id)
     WHERE v.campaign_id = ANY($1)
-    -- Scanner filter: see get-campaign-stats above for the canonical fragment.
+    -- Scanner filter see get-campaign-stats above for the canonical fragment.
     AND NOT (v.subscriber_id IS NOT NULL
         AND c.started_at IS NOT NULL
         AND v.created_at <= c.started_at + INTERVAL '4 minutes'
@@ -341,7 +341,7 @@ WITH recipients AS (
         FROM campaign_views v
         JOIN campaigns c ON (c.id = v.campaign_id)
         WHERE v.campaign_id = ANY($1)
-        -- Scanner filter: see get-campaign-stats for the canonical fragment.
+        -- Scanner filter see get-campaign-stats for the canonical fragment.
         AND NOT (v.subscriber_id IS NOT NULL
             AND c.started_at IS NOT NULL
             AND v.created_at <= c.started_at + INTERVAL '4 minutes'
@@ -363,7 +363,7 @@ views AS (
     FROM campaign_views v
     JOIN campaigns c ON (c.id = v.campaign_id)
     WHERE v.campaign_id = ANY($1)
-    -- Scanner filter: see get-campaign-stats for the canonical fragment.
+    -- Scanner filter see get-campaign-stats for the canonical fragment.
     AND NOT (v.subscriber_id IS NOT NULL
         AND c.started_at IS NOT NULL
         AND v.created_at <= c.started_at + INTERVAL '4 minutes'
@@ -399,7 +399,7 @@ view_times AS (
     FROM campaign_views v
     JOIN campaigns c ON (c.id = v.campaign_id)
     WHERE v.campaign_id = ANY($1)
-    -- Scanner filter: see get-campaign-stats for the canonical fragment.
+    -- Scanner filter see get-campaign-stats for the canonical fragment.
     AND NOT (v.subscriber_id IS NOT NULL
         AND c.started_at IS NOT NULL
         AND v.created_at <= c.started_at + INTERVAL '4 minutes'

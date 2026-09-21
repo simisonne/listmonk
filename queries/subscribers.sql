@@ -419,7 +419,7 @@ views AS (
     FROM campaign_views v
     LEFT JOIN campaigns c ON (c.id = v.campaign_id)
     WHERE v.subscriber_id = (SELECT id FROM prof)
-    -- Scanner filter: same rule as queries/campaigns.sql (get-campaign-stats).
+    -- Scanner filter same rule as queries/campaigns.sql (get-campaign-stats).
     AND NOT (v.subscriber_id IS NOT NULL
         AND c.started_at IS NOT NULL
         AND v.created_at <= c.started_at + INTERVAL '4 minutes'
@@ -457,7 +457,7 @@ WITH views AS (
     FROM campaign_views v
     LEFT JOIN campaigns c ON c.id = v.campaign_id
     WHERE v.subscriber_id = $1
-    -- Scanner filter: same rule as queries/campaigns.sql (get-campaign-stats).
+    -- Scanner filter same rule as queries/campaigns.sql (get-campaign-stats).
     -- Without it the Activity tab shows mail-gateway prefetches as subscriber opens.
     AND NOT (v.subscriber_id IS NOT NULL
         AND c.started_at IS NOT NULL

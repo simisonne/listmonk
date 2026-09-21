@@ -19,7 +19,7 @@ SELECT * FROM (
     FROM campaign_views v
     JOIN campaigns c ON c.id = v.campaign_id
     LEFT JOIN subscribers s ON s.id = v.subscriber_id
-    -- Scanner filter: the earliest view of a (campaign, subscriber) pair within 4
+    -- Scanner filter the earliest view of a (campaign, subscriber) pair within 4
     -- minutes of the send is mail-gateway noise, not an open. Copies the canonical
     -- fragment documented in queries/campaigns.sql (get-campaign-stats).
     WHERE NOT (v.subscriber_id IS NOT NULL
