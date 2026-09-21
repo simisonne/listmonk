@@ -384,6 +384,12 @@ export default Vue.extend({
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.events .event-text a {
+  text-decoration: none;
+}
+.events .event-text a:hover {
+  text-decoration: underline;
+}
 .events .timestamp {
   white-space: nowrap;
 }
