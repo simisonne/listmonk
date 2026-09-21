@@ -146,18 +146,20 @@
                   <small class="has-text-grey timestamp" :title="eventRelative(e.createdAt)">{{ eventTime(e.createdAt) }}</small>
                   <b-icon :icon="eventIcon(e.type)" size="is-small" />
                   <span class="event-text">
-                    <template v-if="e.email && e.subscriberId && !isMelodiesEvent(e.type)">
-                      <router-link :to="{ name: 'subscriber', params: { id: e.subscriberId }, query: { tab: 'activity' } }">{{ e.email }}</router-link>
+                    <template v-if="e.type !== 'campaign_sent'">
+                      <template v-if="e.email && e.subscriberId && !isMelodiesEvent(e.type)">
+                        <router-link :to="{ name: 'subscriber', params: { id: e.subscriberId }, query: { tab: 'activity' } }">{{ e.email }}</router-link>
+                      </template>
+                      <template v-else-if="e.email">{{ e.email }}</template>
+                      <template v-else-if="e.subscriberName">{{ e.subscriberName }}</template>
+                      <template v-else>Someone</template>
+                      {{ ' ' }}
                     </template>
-                    <template v-else-if="e.email">{{ e.email }}</template>
-                    <template v-else-if="e.subscriberName">{{ e.subscriberName }}</template>
-                    <template v-else>Someone</template>
-                    {{ ' ' }}
                     <template v-if="e.type === 'campaign_sent'">
                       <template v-if="e.campaignId">
-                        sent <router-link :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || `#${e.campaignId}` }}</router-link>
+                        Campaign sent: <router-link :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || `#${e.campaignId}` }}</router-link>
                       </template>
-                      <template v-else>sent {{ e.campaignName || 'a campaign' }}</template>
+                      <template v-else>Campaign sent: {{ e.campaignName || 'a campaign' }}</template>
                     </template>
                     <template v-else-if="e.type === 'open'">
                       opened
