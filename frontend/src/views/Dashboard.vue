@@ -143,7 +143,7 @@
               </h3>
               <ul v-if="visibleEvents.length" class="events">
                 <li v-for="(e, i) in visibleEvents" :key="i" class="event">
-                  <small class="has-text-grey timestamp" :title="eventRelative(e.created_at)">{{ eventTime(e.created_at) }}</small>
+                  <small class="has-text-grey timestamp" :title="eventRelative(e.createdAt)">{{ eventTime(e.createdAt) }}</small>
                   <b-icon :icon="eventIcon(e.type)" size="is-small" />
                   <span class="event-text">{{ eventText(e) }}</span>
                 </li>
@@ -259,18 +259,19 @@ export default Vue.extend({
     },
 
     eventText(e) {
-      const who = e.email || e.subscriber_name || 'Someone';
+      // The API client camelCases keys: campaign_name arrives as campaignName, etc.
+      const who = e.email || e.subscriberName || 'Someone';
       switch (e.type) {
         case 'campaign_sent':
-          return `Campaign sent: ${e.campaign_name || `#${e.campaign_id}`}`;
+          return `Campaign sent: ${e.campaignName || `#${e.campaignId}`}`;
         case 'open':
-          return `${who} opened ${e.campaign_name || 'a campaign'}`;
+          return `${who} opened ${e.campaignName || 'a campaign'}`;
         case 'click':
-          return `${who} clicked ${this.linkHost(e.url)}in ${e.campaign_name || 'a campaign'}`;
+          return `${who} clicked a link in ${e.campaignName || 'a campaign'}`;
         case 'optin':
-          return `${who} joined ${e.list_name || 'a public list'}`;
+          return `${who} joined ${e.listName || 'a public list'}`;
         case 'unsubscribe':
-          return `${who} left ${e.list_name || 'a list'}`;
+          return `${who} left ${e.listName || 'a list'}`;
         case 'site_visit':
           return 'Melodies site visited';
         case 'track_played':
@@ -288,17 +289,6 @@ export default Vue.extend({
 
     eventRelative(stamp) {
       return stamp ? dayjs(stamp).fromNow() : '';
-    },
-
-    linkHost(url) {
-      if (!url) {
-        return 'a link ';
-      }
-      try {
-        return `${new URL(url).hostname} `;
-      } catch (err) {
-        return 'a link ';
-      }
     },
   },
 
