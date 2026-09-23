@@ -80,7 +80,7 @@ WHERE ($1 = 0 OR id = $1)
             SELECT 1 FROM campaign_lists WHERE campaign_id = c.id AND list_id = ANY($6::INT[])
         )
     )
-ORDER BY %order% OFFSET $7 LIMIT (CASE WHEN $8 < 1 THEN NULL ELSE $8 END);
+ORDER BY (CASE WHEN c.status = 'draft' THEN 0 ELSE 1 END), %order% OFFSET $7 LIMIT (CASE WHEN $8 < 1 THEN NULL ELSE $8 END);
 
 -- name: get-campaign
 SELECT campaigns.*,
