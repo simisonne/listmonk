@@ -173,9 +173,9 @@
                     </template>
                     <template v-else-if="e.type === 'optin'">joined {{ e.listName || 'a public list' }}</template>
                     <template v-else-if="e.type === 'unsubscribe'">left {{ e.listName || 'a list' }}</template>
-                    <template v-else-if="e.type === 'site_visit'">visited the Melodies site</template>
-                    <template v-else-if="e.type === 'track_played'">played{{ e.track ? `: ${e.track}` : ' a track' }} on the Melodies site</template>
-                    <template v-else-if="e.type === 'track_downloaded'">downloaded{{ e.track ? `: ${e.track}` : ' a track' }} from the Melodies site</template>
+                    <template v-else-if="e.type === 'site_visit'">visited the Melodies site{{ melodiesDetail(e) }}</template>
+                    <template v-else-if="e.type === 'track_played'">played{{ e.track ? `: ${e.track}` : ' a track' }} on the Melodies site{{ melodiesDetail(e) }}</template>
+                    <template v-else-if="e.type === 'track_downloaded'">downloaded{{ e.track ? `: ${e.track}` : ' a track' }} from the Melodies site{{ melodiesDetail(e) }}</template>
                     <template v-else>{{ e.type }}</template>
                   </span>
                 </li>
@@ -298,6 +298,16 @@ export default Vue.extend({
     // Melodies site events stay as plain text: nothing in them is clickable.
     isMelodiesEvent(type) {
       return ['site_visit', 'track_played', 'track_downloaded'].indexOf(type) !== -1;
+    },
+
+    // " (iPhone, Safari)" suffix for melodies events, empty when the log
+    // line predates the device / browser fields.
+    melodiesDetail(e) {
+      const parts = [e.device, e.browser].filter((v) => v);
+      if (!parts.length) {
+        return '';
+      }
+      return ` (${parts.join(', ')})`;
     },
 
     eventTime(stamp) {

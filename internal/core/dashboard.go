@@ -123,6 +123,12 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 				ev.Track = &t
 			}
 		}
+		if d := parseMelodiesMetaToken(m[4], "device"); d != "" {
+			ev.Device = &d
+		}
+		if b := parseMelodiesMetaToken(m[4], "browser"); b != "" {
+			ev.Browser = &b
+		}
 		out = append(out, ev)
 	}
 
@@ -130,15 +136,40 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 }
 
 // parseMelodiesTrack extracts the song= value from the trailing meta of a
-// log line. Values may contain spaces and always precede the ip= pair.
+// log line. Values may contain spaces and stop at the first known follower
+// pair (ip, device, browser).
 func parseMelodiesTrack(meta string) string {
 	i := strings.Index(meta, "song=")
 	if i == -1 {
 		return ""
 	}
 	rest := meta[i+len("song="):]
-	if j := strings.Index(rest, " ip="); j != -1 {
-		rest = rest[:j]
+	for _, stop := range []string{" ip=", " device=", " browser="} {
+		if j := strings.Index(rest, stop); j != -1 {
+			rest = rest[:j]
+		}
 	}
 	return strings.TrimSpace(rest)
+}
+
+// melodiesMetaTokenRes compiles the single token fields (device, browser)
+// that newer PI-Website log lines carry in their trailing meta.
+var melodiesMetaTokenRes = map[string]*regexp.Regexp{
+	"device":  regexp.MustCompile(`(?:^|\s)device=(\S+)`),
+	"browser": regexp.MustCompile(`(?:^|\s)browser=(\S+)`),
+}
+
+// parseMelodiesMetaToken extracts a single token value such as device=iPhone
+// from the trailing meta of a log line. Lines written before the field
+// existed return an empty string.
+func parseMelodiesMetaToken(meta, key string) string {
+	re, ok := melodiesMetaTokenRes[key]
+	if !ok {
+		return ""
+	}
+	m := re.FindStringSubmatch(meta)
+	if m == nil {
+		return ""
+	}
+	return m[1]
 }
