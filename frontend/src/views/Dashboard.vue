@@ -165,6 +165,7 @@
                       opened
                       <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || 'a campaign' }}</router-link>
                       <template v-else>{{ e.campaignName || 'a campaign' }}</template>
+                      <template v-if="e.openCount"> ({{ ordinal(e.openCount) }} time)</template>
                     </template>
                     <template v-else-if="e.type === 'click'">
                       clicked a link in
@@ -308,6 +309,25 @@ export default Vue.extend({
         return '';
       }
       return ` (${parts.join(', ')})`;
+    },
+
+    // 1 -> 1st, 2 -> 2nd, 3 -> 3rd, 4 -> 4th, 11-13 -> th.
+    ordinal(n) {
+      const mod100 = n % 100;
+      if (mod100 >= 11 && mod100 <= 13) {
+        return `${n}th`;
+      }
+      const mod10 = n % 10;
+      if (mod10 === 1) {
+        return `${n}st`;
+      }
+      if (mod10 === 2) {
+        return `${n}nd`;
+      }
+      if (mod10 === 3) {
+        return `${n}rd`;
+      }
+      return `${n}th`;
     },
 
     eventTime(stamp) {

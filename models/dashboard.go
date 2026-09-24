@@ -17,6 +17,7 @@ type DashboardEvent struct {
 	ListName       *string   `db:"list_name" json:"list_name"`
 	URL            *string   `db:"url" json:"url"`
 	Track          *string   `db:"track" json:"track"`
+	OpenCount      *int      `db:"open_count" json:"open_count"`
 	Device         *string   `db:"device" json:"device"`
 	Browser        *string   `db:"browser" json:"browser"`
 }
