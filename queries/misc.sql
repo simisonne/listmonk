@@ -53,6 +53,16 @@ SELECT * FROM (
     JOIN links l ON l.id = lc.link_id
     LEFT JOIN campaigns c ON c.id = lc.campaign_id
     LEFT JOIN subscribers s ON s.id = lc.subscriber_id
+    -- Click burst filter, rapid duplicate clicks on the same link within
+    -- 5 seconds of each other collapse to the latest click of the burst.
+    WHERE NOT EXISTS (
+        SELECT 1 FROM link_clicks later
+        WHERE later.campaign_id = lc.campaign_id
+        AND later.subscriber_id = lc.subscriber_id
+        AND later.link_id = lc.link_id
+        AND (later.created_at, later.id) > (lc.created_at, lc.id)
+        AND later.created_at <= lc.created_at + INTERVAL '5 seconds'
+    )
     UNION ALL
     SELECT 'optin', sl.created_at, NULL, NULL,
         sl.subscriber_id, s.email, s.name, l.name, NULL, NULL, NULL

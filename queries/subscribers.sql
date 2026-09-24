@@ -444,6 +444,16 @@ clicks AS (
     SELECT url, COUNT(subscriber_id) as clicks FROM link_clicks
         LEFT JOIN links ON (links.id = link_clicks.link_id)
         WHERE subscriber_id = (SELECT id FROM prof)
+        -- Click burst filter, rapid duplicate clicks on the same link within
+        -- 5 seconds of each other collapse to the latest click of the burst.
+        AND NOT EXISTS (
+            SELECT 1 FROM link_clicks later
+            WHERE later.campaign_id = link_clicks.campaign_id
+            AND later.subscriber_id = link_clicks.subscriber_id
+            AND later.link_id = link_clicks.link_id
+            AND (later.created_at, later.id) > (link_clicks.created_at, link_clicks.id)
+            AND later.created_at <= link_clicks.created_at + INTERVAL '5 seconds'
+        )
         GROUP BY links.id ORDER BY links.id
 )
 SELECT (SELECT email FROM prof) as email,
@@ -503,6 +513,16 @@ clicks AS (
     LEFT JOIN links l ON l.id = lc.link_id
     LEFT JOIN campaigns c ON c.id = lc.campaign_id
     WHERE lc.subscriber_id = $1
+    -- Click burst filter, rapid duplicate clicks on the same link within
+    -- 5 seconds of each other collapse to the latest click of the burst.
+    AND NOT EXISTS (
+        SELECT 1 FROM link_clicks later
+        WHERE later.campaign_id = lc.campaign_id
+        AND later.subscriber_id = lc.subscriber_id
+        AND later.link_id = lc.link_id
+        AND (later.created_at, later.id) > (lc.created_at, lc.id)
+        AND later.created_at <= lc.created_at + INTERVAL '5 seconds'
+    )
     GROUP BY l.id, l.url, c.id, c.uuid, c.name, c.subject
     ORDER BY last_clicked_at DESC
 )

@@ -411,7 +411,7 @@ func prepareQueries(qMap goyesql.Queries, db *sqlx.DB, ko *koanf.Koanf) *models.
 	}
 
 	// scannerViewFilter is appended to the analytics count templates when they run
-	// against `campaign_views` (empty for `link_clicks`). It is the canonical
+	// against `campaign_views` (clicks get burstClickFilter instead). It is the canonical
 	// fragment documented in queries/campaigns.sql (get-campaign-stats): the
 	// earliest view of a (campaign, subscriber) pair inside the 4 minutes after
 	// campaigns.started_at is mail-gateway scanner noise and is ignored. Views with
@@ -442,13 +442,30 @@ func prepareQueries(qMap goyesql.Queries, db *sqlx.DB, ko *koanf.Koanf) *models.
         AND later.created_at <= v.created_at + INTERVAL '5 seconds'
     )`
 
+	// burstClickFilter is the click twin of burstViewFilter, appended wherever
+	// the analytics counts run against `link_clicks`. A click is a rapid
+	// duplicate when the same (campaign, subscriber, link) triple recorded a
+	// later click within 5 seconds of it, and only the latest click of such a
+	// burst counts. Reads only, the write path keeps recording every click
+	// and exports stay raw. NULL subscriber rows never match (`NULL = NULL`
+	// is not true) so they always count, same as the view burst filter.
+	const burstClickFilter = `
+    AND NOT EXISTS (
+        SELECT 1 FROM link_clicks later
+        WHERE later.campaign_id = v.campaign_id
+        AND later.subscriber_id = v.subscriber_id
+        AND later.link_id = v.link_id
+        AND (later.created_at, later.id) > (v.created_at, v.id)
+        AND later.created_at <= v.created_at + INTERVAL '5 seconds'
+    )`
+
 	// These don't exist in the SQL file but are in the queries struct to be prepared.
 	qMap["get-campaign-view-counts"] = &goyesql.Query{
 		Query: fmt.Sprintf(qMap[countQuery].Query, "campaign_views", scannerViewFilter+burstViewFilter),
 		Tags:  map[string]string{"name": "get-campaign-view-counts"},
 	}
 	qMap["get-campaign-click-counts"] = &goyesql.Query{
-		Query: fmt.Sprintf(qMap[countQuery].Query, "link_clicks", ""),
+		Query: fmt.Sprintf(qMap[countQuery].Query, "link_clicks", burstClickFilter),
 		Tags:  map[string]string{"name": "get-campaign-click-counts"},
 	}
 	qMap["get-campaign-link-counts"].Query = fmt.Sprintf(qMap["get-campaign-link-counts"].Query, linkSel)

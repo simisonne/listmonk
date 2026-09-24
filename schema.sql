@@ -409,9 +409,19 @@ CREATE MATERIALIZED VIEW mat_dashboard_charts AS
                      created_at::DATE - INTERVAL '30 DAY' AS from_date
                      FROM link_clicks ORDER BY id DESC LIMIT 1
             )
-            SELECT COUNT(*) AS count, created_at::DATE as date FROM link_clicks
-              WHERE created_at >= (SELECT from_date FROM viewDates)
-                AND created_at < (SELECT to_date FROM viewDates) + INTERVAL '1 day'
+            SELECT COUNT(*) AS count, lc.created_at::DATE as date FROM link_clicks lc
+              WHERE lc.created_at >= (SELECT from_date FROM viewDates)
+                AND lc.created_at < (SELECT to_date FROM viewDates) + INTERVAL '1 day'
+                -- Click burst filter, rapid duplicate clicks on the same link
+                -- within 5 seconds of each other collapse to the latest click.
+                AND NOT EXISTS (
+                    SELECT 1 FROM link_clicks later
+                    WHERE later.campaign_id = lc.campaign_id
+                    AND later.subscriber_id = lc.subscriber_id
+                    AND later.link_id = lc.link_id
+                    AND (later.created_at, later.id) > (lc.created_at, lc.id)
+                    AND later.created_at <= lc.created_at + INTERVAL '5 seconds'
+                )
               GROUP by date ORDER BY date
         ) row
     ),

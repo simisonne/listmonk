@@ -184,9 +184,19 @@ views AS (
     GROUP BY v.campaign_id
 ),
 clicks AS (
-    SELECT campaign_id, COUNT(campaign_id) as num FROM link_clicks
-    WHERE campaign_id = ANY($1)
-    GROUP BY campaign_id
+    SELECT lc.campaign_id, COUNT(lc.campaign_id) as num FROM link_clicks lc
+    WHERE lc.campaign_id = ANY($1)
+    -- Click burst filter, rapid duplicate clicks on the same link within
+    -- 5 seconds of each other collapse to the latest click of the burst.
+    AND NOT EXISTS (
+        SELECT 1 FROM link_clicks later
+        WHERE later.campaign_id = lc.campaign_id
+        AND later.subscriber_id = lc.subscriber_id
+        AND later.link_id = lc.link_id
+        AND (later.created_at, later.id) > (lc.created_at, lc.id)
+        AND later.created_at <= lc.created_at + INTERVAL '5 seconds'
+    )
+    GROUP BY lc.campaign_id
 ),
 bounces AS (
     SELECT campaign_id, COUNT(campaign_id) as num FROM bounces
@@ -291,8 +301,10 @@ SELECT camps.*, campMedia.media_id FROM camps LEFT JOIN campMedia ON (campMedia.
 
 -- name: get-campaign-analytics-unique-counts
 -- Two placeholders: the first is the source table (`campaign_views` or `link_clicks`),
--- the second carries the scanner-view and burst exclusions, which apply to
--- `campaign_views` only (empty for `link_clicks`). See cmd/init.go prepareQueries().
+-- the second carries the exclusion fragments. Views get the scanner-view plus
+-- burst exclusions, clicks get the click burst exclusion (same link, same
+-- subscriber, later click within 5 seconds, only the latest counts).
+-- See cmd/init.go prepareQueries().
 WITH intval AS (
     -- For intervals < a week, aggregate counts hourly, otherwise daily.
     SELECT CASE WHEN (EXTRACT (EPOCH FROM ($3::TIMESTAMP - $2::TIMESTAMP)) / 86400) >= 7 THEN 'day' ELSE 'hour' END
@@ -309,8 +321,8 @@ SELECT COUNT(*) AS "count", campaign_id, "timestamp"
 
 -- name: get-campaign-analytics-counts
 -- raw: true
--- Two placeholders: the source table and the scanner-view plus burst exclusions
--- (same as get-campaign-analytics-unique-counts above).
+-- Two placeholders: the source table and the exclusion fragments (same as
+-- get-campaign-analytics-unique-counts above).
 WITH intval AS (
     -- For intervals < a week, aggregate counts hourly, otherwise daily.
     SELECT CASE WHEN (EXTRACT (EPOCH FROM ($3::TIMESTAMP - $2::TIMESTAMP)) / 86400) >= 7 THEN 'day' ELSE 'hour' END
@@ -334,10 +346,20 @@ SELECT campaign_id, COUNT(*) AS "count", DATE_TRUNC((SELECT * FROM intval), crea
 -- name: get-campaign-link-counts
 -- raw: true
 -- %s = * or DISTINCT subscriber_id (prepared based on based on individual tracking=on/off). Prepared on boot.
+-- Rapid duplicate clicks on the same link within 5 seconds collapse to the
+-- latest click of the burst, same rule as the click burst exclusion in init.go.
 SELECT COUNT(%s) AS "count", url
     FROM link_clicks
     LEFT JOIN links ON (link_clicks.link_id = links.id)
     WHERE campaign_id=ANY($1) AND link_clicks.created_at >= $2 AND link_clicks.created_at <= $3
+    AND NOT EXISTS (
+        SELECT 1 FROM link_clicks later
+        WHERE later.campaign_id = link_clicks.campaign_id
+        AND later.subscriber_id = link_clicks.subscriber_id
+        AND later.link_id = link_clicks.link_id
+        AND (later.created_at, later.id) > (link_clicks.created_at, link_clicks.id)
+        AND later.created_at <= link_clicks.created_at + INTERVAL '5 seconds'
+    )
     GROUP BY links.url ORDER BY "count" DESC LIMIT 50;
 
 -- name: get-campaign-subscriber-stats
@@ -421,16 +443,36 @@ views AS (
     GROUP BY v.subscriber_id
 ),
 clicks AS (
-    SELECT subscriber_id, COUNT(*) AS clicks, MAX(created_at) AS last_click_at
-    FROM link_clicks
-    WHERE campaign_id = ANY($1)
-    GROUP BY subscriber_id
+    SELECT lc.subscriber_id, COUNT(*) AS clicks, MAX(lc.created_at) AS last_click_at
+    FROM link_clicks lc
+    WHERE lc.campaign_id = ANY($1)
+    -- Click burst filter, rapid duplicate clicks on the same link within
+    -- 5 seconds of each other collapse to the latest click of the burst.
+    AND NOT EXISTS (
+        SELECT 1 FROM link_clicks later
+        WHERE later.campaign_id = lc.campaign_id
+        AND later.subscriber_id = lc.subscriber_id
+        AND later.link_id = lc.link_id
+        AND (later.created_at, later.id) > (lc.created_at, lc.id)
+        AND later.created_at <= lc.created_at + INTERVAL '5 seconds'
+    )
+    GROUP BY lc.subscriber_id
 ),
 link_detail AS (
     SELECT lc.subscriber_id, links.url, COUNT(*) AS count, MAX(lc.created_at) AS last_clicked_at
     FROM link_clicks lc
     JOIN links ON links.id = lc.link_id
     WHERE lc.campaign_id = ANY($1)
+    -- Click burst filter, rapid duplicate clicks on the same link within
+    -- 5 seconds of each other collapse to the latest click of the burst.
+    AND NOT EXISTS (
+        SELECT 1 FROM link_clicks later
+        WHERE later.campaign_id = lc.campaign_id
+        AND later.subscriber_id = lc.subscriber_id
+        AND later.link_id = lc.link_id
+        AND (later.created_at, later.id) > (lc.created_at, lc.id)
+        AND later.created_at <= lc.created_at + INTERVAL '5 seconds'
+    )
     GROUP BY lc.subscriber_id, links.url
 ),
 link_agg AS (
@@ -466,10 +508,20 @@ view_times AS (
     GROUP BY v.subscriber_id
 ),
 click_times AS (
-    SELECT subscriber_id, JSON_AGG(created_at ORDER BY created_at ASC) AS click_times
-    FROM link_clicks
-    WHERE campaign_id = ANY($1)
-    GROUP BY subscriber_id
+    SELECT lc.subscriber_id, JSON_AGG(lc.created_at ORDER BY lc.created_at ASC) AS click_times
+    FROM link_clicks lc
+    WHERE lc.campaign_id = ANY($1)
+    -- Click burst filter, rapid duplicate clicks on the same link within
+    -- 5 seconds of each other collapse to the latest click of the burst.
+    AND NOT EXISTS (
+        SELECT 1 FROM link_clicks later
+        WHERE later.campaign_id = lc.campaign_id
+        AND later.subscriber_id = lc.subscriber_id
+        AND later.link_id = lc.link_id
+        AND (later.created_at, later.id) > (lc.created_at, lc.id)
+        AND later.created_at <= lc.created_at + INTERVAL '5 seconds'
+    )
+    GROUP BY lc.subscriber_id
 )
 SELECT s.id AS subscriber_id, s.email, s.name,
     COALESCE(v.views, 0) AS views,
