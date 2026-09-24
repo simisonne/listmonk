@@ -438,6 +438,15 @@ CREATE MATERIALIZED VIEW mat_dashboard_charts AS
                         AND earlier.subscriber_id = v.subscriber_id
                         AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
                     ))
+                -- Burst filter, rapid duplicate opens within 5 seconds of each other
+                -- collapse to the latest view of the burst.
+                AND NOT EXISTS (
+                    SELECT 1 FROM campaign_views later
+                    WHERE later.campaign_id = v.campaign_id
+                    AND later.subscriber_id = v.subscriber_id
+                    AND (later.created_at, later.id) > (v.created_at, v.id)
+                    AND later.created_at <= v.created_at + INTERVAL '5 seconds'
+                )
               GROUP by date ORDER BY date
         ) row
     )

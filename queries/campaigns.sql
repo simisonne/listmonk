@@ -131,6 +131,24 @@ SELECT COUNT(*) OVER () AS total, campaigns.*,
 -- same 4 minute window always counts. The same rule is enforced on the write path in
 -- `register-campaign-view` and cleaned up once in internal/migrations/v6.3.0.go.
 -- `export-campaign-views` is deliberately left raw: exports are a faithful record.
+--
+-- BURST FILTER (copy verbatim alongside the scanner filter, `v` = campaign_views row)
+-- an open is a rapid duplicate when the same (campaign_id, subscriber_id) pair
+-- recorded a LATER view within 5 seconds of it. Only the latest view of such a
+-- burst counts and the earlier ones are ignored.
+--
+--     AND NOT EXISTS (
+--         SELECT 1 FROM campaign_views later
+--         WHERE later.campaign_id = v.campaign_id
+--         AND later.subscriber_id = v.subscriber_id
+--         AND (later.created_at, later.id) > (v.created_at, v.id)
+--         AND later.created_at <= v.created_at + INTERVAL '5 seconds'
+--     )
+--
+-- Rows with a NULL subscriber_id always count. `export-campaign-views` stays raw
+-- and the write path in `register-campaign-view` keeps recording every view.
+-- A burst is only visible once the later view has landed, so the rule lives in
+-- the reads, never in the write path or the exports.
 WITH lists AS (
     SELECT campaign_id, JSON_AGG(JSON_BUILD_OBJECT('id', list_id, 'name', list_name)) AS lists FROM campaign_lists
     WHERE campaign_id = ANY($1) GROUP BY campaign_id
@@ -154,6 +172,15 @@ views AS (
             AND earlier.subscriber_id = v.subscriber_id
             AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
         ))
+    -- Burst filter, rapid duplicate opens within 5 seconds of each other
+    -- collapse to the latest view of the burst.
+    AND NOT EXISTS (
+        SELECT 1 FROM campaign_views later
+        WHERE later.campaign_id = v.campaign_id
+        AND later.subscriber_id = v.subscriber_id
+        AND (later.created_at, later.id) > (v.created_at, v.id)
+        AND later.created_at <= v.created_at + INTERVAL '5 seconds'
+    )
     GROUP BY v.campaign_id
 ),
 clicks AS (
@@ -264,8 +291,8 @@ SELECT camps.*, campMedia.media_id FROM camps LEFT JOIN campMedia ON (campMedia.
 
 -- name: get-campaign-analytics-unique-counts
 -- Two placeholders: the first is the source table (`campaign_views` or `link_clicks`),
--- the second is the scanner-view exclusion, which applies to `campaign_views` only
--- (empty for `link_clicks`). See cmd/init.go prepareQueries().
+-- the second carries the scanner-view and burst exclusions, which apply to
+-- `campaign_views` only (empty for `link_clicks`). See cmd/init.go prepareQueries().
 WITH intval AS (
     -- For intervals < a week, aggregate counts hourly, otherwise daily.
     SELECT CASE WHEN (EXTRACT (EPOCH FROM ($3::TIMESTAMP - $2::TIMESTAMP)) / 86400) >= 7 THEN 'day' ELSE 'hour' END
@@ -282,8 +309,8 @@ SELECT COUNT(*) AS "count", campaign_id, "timestamp"
 
 -- name: get-campaign-analytics-counts
 -- raw: true
--- Two placeholders: the source table and the scanner-view exclusion (same as
--- get-campaign-analytics-unique-counts above).
+-- Two placeholders: the source table and the scanner-view plus burst exclusions
+-- (same as get-campaign-analytics-unique-counts above).
 WITH intval AS (
     -- For intervals < a week, aggregate counts hourly, otherwise daily.
     SELECT CASE WHEN (EXTRACT (EPOCH FROM ($3::TIMESTAMP - $2::TIMESTAMP)) / 86400) >= 7 THEN 'day' ELSE 'hour' END
@@ -351,6 +378,15 @@ WITH recipients AS (
                 AND earlier.subscriber_id = v.subscriber_id
                 AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
             ))
+        -- Burst filter, rapid duplicate opens within 5 seconds of each other
+        -- collapse to the latest view of the burst.
+        AND NOT EXISTS (
+            SELECT 1 FROM campaign_views later
+            WHERE later.campaign_id = v.campaign_id
+            AND later.subscriber_id = v.subscriber_id
+            AND (later.created_at, later.id) > (v.created_at, v.id)
+            AND later.created_at <= v.created_at + INTERVAL '5 seconds'
+        )
         UNION
         SELECT campaign_id, subscriber_id FROM link_clicks WHERE campaign_id = ANY($1)
     ) e
@@ -373,6 +409,15 @@ views AS (
             AND earlier.subscriber_id = v.subscriber_id
             AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
         ))
+    -- Burst filter, rapid duplicate opens within 5 seconds of each other
+    -- collapse to the latest view of the burst.
+    AND NOT EXISTS (
+        SELECT 1 FROM campaign_views later
+        WHERE later.campaign_id = v.campaign_id
+        AND later.subscriber_id = v.subscriber_id
+        AND (later.created_at, later.id) > (v.created_at, v.id)
+        AND later.created_at <= v.created_at + INTERVAL '5 seconds'
+    )
     GROUP BY v.subscriber_id
 ),
 clicks AS (
@@ -409,6 +454,15 @@ view_times AS (
             AND earlier.subscriber_id = v.subscriber_id
             AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
         ))
+    -- Burst filter, rapid duplicate opens within 5 seconds of each other
+    -- collapse to the latest view of the burst.
+    AND NOT EXISTS (
+        SELECT 1 FROM campaign_views later
+        WHERE later.campaign_id = v.campaign_id
+        AND later.subscriber_id = v.subscriber_id
+        AND (later.created_at, later.id) > (v.created_at, v.id)
+        AND later.created_at <= v.created_at + INTERVAL '5 seconds'
+    )
     GROUP BY v.subscriber_id
 ),
 click_times AS (

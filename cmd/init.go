@@ -427,9 +427,24 @@ func prepareQueries(qMap goyesql.Queries, db *sqlx.DB, ko *koanf.Koanf) *models.
             AND (earlier.created_at, earlier.id) < (v.created_at, v.id)
         ))`
 
+	// burstViewFilter is appended alongside scannerViewFilter wherever the
+	// analytics counts run against `campaign_views`. It is the canonical burst
+	// fragment from queries/campaigns.sql: an open is a rapid duplicate when the
+	// same (campaign, subscriber) pair recorded a later view within 5 seconds of
+	// it, and only the latest view of such a burst counts. Reads only, the write
+	// path keeps recording every view and exports stay raw.
+	const burstViewFilter = `
+    AND NOT EXISTS (
+        SELECT 1 FROM campaign_views later
+        WHERE later.campaign_id = v.campaign_id
+        AND later.subscriber_id = v.subscriber_id
+        AND (later.created_at, later.id) > (v.created_at, v.id)
+        AND later.created_at <= v.created_at + INTERVAL '5 seconds'
+    )`
+
 	// These don't exist in the SQL file but are in the queries struct to be prepared.
 	qMap["get-campaign-view-counts"] = &goyesql.Query{
-		Query: fmt.Sprintf(qMap[countQuery].Query, "campaign_views", scannerViewFilter),
+		Query: fmt.Sprintf(qMap[countQuery].Query, "campaign_views", scannerViewFilter+burstViewFilter),
 		Tags:  map[string]string{"name": "get-campaign-view-counts"},
 	}
 	qMap["get-campaign-click-counts"] = &goyesql.Query{
