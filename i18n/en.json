@@ -123,6 +123,8 @@
     "dashboard.campaignViews": "Campaign views",
     "dashboard.linkClicks": "Link clicks",
     "dashboard.messagesSent": "Messages sent",
+    "dashboard.opens": "Opens",
+    "dashboard.clicks": "Clicks",
     "dashboard.noEvents": "No events yet.",
     "dashboard.orphanSubs": "Orphans",
     "dashboard.recentEvents": "Recent events",

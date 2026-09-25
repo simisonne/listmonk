@@ -102,15 +102,27 @@
                   </div><!-- subscriber breakdown -->
                 </div><!-- subscriber columns -->
                 <hr />
-                <div class="columns" data-cy="messages">
-                  <div class="column is-12">
+                <div class="columns is-mobile" data-cy="messages">
+                  <div class="column is-6">
                     <p class="title">
                       <b-icon icon="email-outline" />
-                      {{ $utils.niceNumber(counts.messages) }}
+                      {{ $utils.niceNumber(counts.messages.total) }}
                     </p>
                     <p class="is-size-6 has-text-grey">
                       {{ $t('dashboard.messagesSent') }}
                     </p>
+                  </div>
+                  <div class="column is-6">
+                    <ul class="no has-text-grey">
+                      <li>
+                        <label for="#">{{ $utils.niceNumber(counts.messages.opens) }}</label>
+                        {{ $t('dashboard.opens') }}
+                      </li>
+                      <li>
+                        <label for="#">{{ $utils.niceNumber(counts.messages.clicks) }}</label>
+                        {{ $t('dashboard.clicks') }}
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </article><!-- subscribers -->
@@ -232,7 +244,7 @@ export default Vue.extend({
         lists: {},
         subscribers: {},
         campaigns: {},
-        messages: 0,
+        messages: {},
       },
     };
   },
