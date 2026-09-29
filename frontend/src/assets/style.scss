@@ -745,7 +745,7 @@ body.is-noscroll {
 
 /* Campaign name highlight: the tint colour sits behind the name text itself.
    Square cut (2px radius), no border, never a pill. Inline styles from
-   $utils.campaignChipStyle() supply the washed out tint background
+   $utils.campaignChipStyle() supply the translucent base colour
    (background-color) and the deep text fill (color). */
 .campaign-name-hl {
   display: inline;
