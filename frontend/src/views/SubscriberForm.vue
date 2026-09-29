@@ -130,7 +130,7 @@
               <b-table-column field="action" :label="$t('globals.fields.type')" v-slot="props">
                 <span class="is-pulled-right">
                   <a href="#" @click.prevent="toggleMeta(props.row.id)">
-                    {{ props.row.source }}
+                    <span class="campaign-name-hl" :style="$utils.eventHighlightStyle('negative')">{{ props.row.source }}</span>
                     <b-icon :icon="visibleMeta[props.row.id] ? 'arrow-up' : 'arrow-down'" />
                   </a>
                 </span>

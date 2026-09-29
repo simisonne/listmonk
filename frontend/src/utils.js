@@ -44,6 +44,11 @@ export const CAMPAIGN_PALETTE = [
   },
 ];
 
+export const EVENT_COLORS = {
+  melodies: { base: '#8B5CF6', deep: '#6D28D9' },
+  negative: { base: '#EF4444', deep: '#B91C1C' },
+};
+
 // #rrggbb (or #rgb) hex plus an alpha as an rgba() string, for inline styles.
 const withAlpha = (hex, alpha) => {
   let h = String(hex || '').replace('#', '');
@@ -318,8 +323,20 @@ export default class Utils {
   campaignChipStyle = (campaign) => {
     const p = this.campaignPalette(campaign);
     return {
-      backgroundColor: withAlpha(p.base, 0.15),
+      backgroundColor: withAlpha(p.base, 0.10),
       color: p.deep,
+    };
+  };
+
+  // Highlight behind non-campaign event text in the dashboard feed and behind
+  // bounce rows. 'melodies' covers Melodies site activity and list optins
+  // (violet, currently unused by any campaign type), 'negative' covers
+  // unsubscribes and bounces (red). Same low alpha as campaign names.
+  eventHighlightStyle = (key) => {
+    const c = EVENT_COLORS[key] || EVENT_COLORS.melodies;
+    return {
+      backgroundColor: withAlpha(c.base, 0.10),
+      color: c.deep,
     };
   };
 

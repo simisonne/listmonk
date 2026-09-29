@@ -198,11 +198,13 @@
                       </template>
                       <template v-if="e.openCount > 1"> ({{ ordinal(e.openCount) }} time)</template>
                     </template>
-                    <template v-else-if="e.type === 'optin'">joined {{ e.listName || 'a public list' }}</template>
-                    <template v-else-if="e.type === 'unsubscribe'">left {{ e.listName || 'a list' }}</template>
-                    <template v-else-if="e.type === 'site_visit'">visited the Melodies site{{ melodiesDetail(e) }}</template>
-                    <template v-else-if="e.type === 'track_played'">played{{ e.track ? `: ${e.track}` : ' a track' }} on the Melodies site{{ melodiesDetail(e) }}</template>
-                    <template v-else-if="e.type === 'track_downloaded'">downloaded{{ e.track ? `: ${e.track}` : ' a track' }} from the Melodies site{{ melodiesDetail(e) }}</template>
+                    <template v-else-if="e.type === 'optin'">joined <span class="campaign-name-hl" :style="eventHl('melodies')">{{ e.listName || 'a public list' }}</span></template>
+                    <template v-else-if="e.type === 'unsubscribe'">left <span class="campaign-name-hl" :style="eventHl('negative')">{{ e.listName || 'a list' }}</span></template>
+                    <template v-else-if="e.type === 'site_visit'"><span class="campaign-name-hl" :style="eventHl('melodies')">visited the Melodies site</span>{{ melodiesDetail(e) }}</template>
+                    <template v-else-if="e.type === 'track_played'"><span class="campaign-name-hl"
+                      :style="eventHl('melodies')">played{{ e.track ? `: ${e.track}` : ' a track' }} on the Melodies site</span>{{ melodiesDetail(e) }}</template>
+                    <template v-else-if="e.type === 'track_downloaded'"><span class="campaign-name-hl"
+                      :style="eventHl('melodies')">downloaded{{ e.track ? `: ${e.track}` : ' a track' }} from the Melodies site</span>{{ melodiesDetail(e) }}</template>
                     <template v-else>{{ e.type }}</template>
                   </span>
                 </li>
@@ -322,9 +324,14 @@ export default Vue.extend({
       }[type] || 'bell-outline';
     },
 
-    // Inline style for the colour chip leading a campaign name in an event.
+    // Inline style for the highlight behind a campaign name in an event.
     campChip(e) {
       return this.$utils.campaignChipStyle({ id: e.campaignId, color: e.campaignColor });
+    },
+
+    // Inline style for the highlight behind a non-campaign event description.
+    eventHl(key) {
+      return this.$utils.eventHighlightStyle(key);
     },
 
     // Melodies site events stay as plain text: nothing in them is clickable.

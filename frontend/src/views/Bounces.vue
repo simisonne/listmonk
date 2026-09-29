@@ -39,7 +39,7 @@
       <b-table-column v-slot="props" field="email" :label="$t('subscribers.email')" :td-attrs="$utils.tdID" sortable>
         <router-link :to="{ name: 'subscriber', params: { id: props.row.subscriberId } }"
           :class="{ 'blocklisted': props.row.subscriberStatus === 'blocklisted' }">
-          {{ props.row.email }}
+          <span class="campaign-name-hl" :style="$utils.eventHighlightStyle('negative')">{{ props.row.email }}</span>
           <b-tag v-if="props.row.subscriberStatus !== 'enabled'" :class="props.row.subscriberStatus"
             data-cy="blocklisted">
             {{ $t(`subscribers.status.${props.row.subscriberStatus}`) }}
