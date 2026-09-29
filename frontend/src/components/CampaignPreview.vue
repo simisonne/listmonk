@@ -14,7 +14,7 @@
             <input v-if="contentType" type="hidden" name="content_type" :value="contentType" />
             <input v-if="templateType" type="hidden" name="template_type" :value="templateType" />
             <input v-if="archiveMeta" type="hidden" name="archive_meta" :value="archiveMeta" />
-            <input v-if="body" type="hidden" name="body" :value="body" />
+            <input v-if="body" type="hidden" name="body" :value="fixedBody" />
           </form>
 
           <iframe id="iframe" name="iframe" ref="iframe" :title="title" :src="isPost ? 'about:blank' : previewURL"
@@ -85,6 +85,12 @@ export default {
   },
 
   computed: {
+    // The richtext editor may return template actions with HTML-escaped
+    // quotes; restore them so the preview compiles.
+    fixedBody() {
+      return this.$utils.fixMangledTemplateQuotes(this.body);
+    },
+
     previewURL() {
       let uri = 'about:blank';
 

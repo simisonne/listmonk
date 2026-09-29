@@ -122,6 +122,19 @@ export default class Utils {
     return this.intlNumFormat.format(v);
   }
 
+  // Restore HTML-escaped quotes (&quot;, &#34;, &#x22;) inside {{ ... }}
+  // template actions back to plain quotes. The richtext editor serializes
+  // attribute values with double quotes, so href='{{ TrackLink "..." }}'
+  // comes back as href="{{ TrackLink &quot;...&quot; }}", and Go templates
+  // fail that with: unexpected "&" in operand. Text outside actions is
+  // left untouched.
+  fixMangledTemplateQuotes(body) {
+    if (!body) {
+      return body;
+    }
+    return body.replace(/{{(.*?)}}/gs, (m, inner) => `{{${inner.replace(/&quot;|&#0*34;|&#[xX]0*22;/gi, '"')}}}`);
+  }
+
   // Parse one or more numeric ids as query params and return as an array of ints.
   parseQueryIDs = (ids) => {
     if (!ids) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"regexp"
 	"strings"
 	txttpl "text/template"
 
@@ -152,12 +153,31 @@ func (camps Campaigns) LoadStats(stmt *sqlx.Stmt) error {
 	return nil
 }
 
+// regTplAction matches one {{ ... }} template action (non-greedy, may span lines).
+var regTplAction = regexp.MustCompile(`(?s){{.*?}}`)
+
+// regMangledQuote matches HTML-escaped double quotes (&quot;, &#34;, &#x22;).
+var regMangledQuote = regexp.MustCompile(`(?i)&quot;|&#0*34;|&#[xX]0*22;`)
+
+// fixMangledTemplateQuotes restores HTML-escaped quotes inside {{ ... }}
+// actions back to plain quotes. Richtext editors serialize attribute values
+// with double quotes, so href='{{ TrackLink "..." }}' comes back from the
+// dashboard as href="{{ TrackLink &quot;...&quot; }}", and Go templates fail
+// that with: unexpected "&" in operand. A raw & is a compile error inside
+// an action in every case, so this can only turn failures into working
+// templates. Text outside actions is left untouched.
+func fixMangledTemplateQuotes(s string) string {
+	return regTplAction.ReplaceAllStringFunc(s, func(m string) string {
+		return regMangledQuote.ReplaceAllString(m, `"`)
+	})
+}
+
 // CompileTemplate compiles a campaign body template into its base
 // template and sets the resultant template to Campaign.Tpl.
 func (c *Campaign) CompileTemplate(f template.FuncMap) error {
 	// If the subject line has a template string, compile it.
 	if hasTplExpr(c.Subject) {
-		subj := c.Subject
+		subj := fixMangledTemplateQuotes(c.Subject)
 		for _, r := range regTplFuncs {
 			subj = r.regExp.ReplaceAllString(subj, r.replace)
 		}
@@ -196,6 +216,7 @@ func (c *Campaign) CompileTemplate(f template.FuncMap) error {
 	} else {
 		body = c.Body
 	}
+	body = fixMangledTemplateQuotes(body)
 
 	// Compile the campaign message.
 	for _, r := range regTplFuncs {
@@ -214,7 +235,7 @@ func (c *Campaign) CompileTemplate(f template.FuncMap) error {
 	c.Tpl = out
 
 	if hasTplExpr(c.AltBody.String) {
-		b := c.AltBody.String
+		b := fixMangledTemplateQuotes(c.AltBody.String)
 		for _, r := range regTplFuncs {
 			b = r.regExp.ReplaceAllString(b, r.replace)
 		}
