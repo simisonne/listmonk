@@ -21,7 +21,11 @@
             <b-taginput v-model="form.campaigns" :data="queriedCampaigns" name="campaigns" ellipsis icon="tag-outline"
               :placeholder="$t('globals.terms.campaigns')" autocomplete :allow-new="false" :open-on-focus="true"
               :before-adding="isCampaignSelected" @typing="queryCampaigns" @focus="queryCampaigns" field="name"
-              :loading="isSearchLoading" />
+              :loading="isSearchLoading">
+              <template #tag="{ tag }">
+                <span class="campaign-name-chip" :style="$utils.campaignChipStyle(tag)" />{{ tag.name }}
+              </template>
+            </b-taginput>
           </b-field>
           <b-button class="mt-2" size="is-small" icon-left="format-list-bulleted"
             :loading="isAllCampaignsLoading" :disabled="isAllCampaignsLoading" data-cy="btn-all-campaigns"

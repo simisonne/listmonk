@@ -471,6 +471,8 @@ WITH views AS (
         c.uuid,
         c.name,
         c.subject,
+        -- Display colour for the campaign chip in the Activity tab.
+        c.color AS color,
         COUNT(*) as view_count,
         MAX(v.created_at) as last_viewed_at
     FROM campaign_views v
@@ -496,7 +498,7 @@ WITH views AS (
         AND (later.created_at, later.id) > (v.created_at, v.id)
         AND later.created_at <= v.created_at + INTERVAL '5 seconds'
     )
-    GROUP BY c.id, c.uuid, c.name, c.subject
+    GROUP BY c.id, c.uuid, c.name, c.subject, c.color
     ORDER BY last_viewed_at DESC
 ),
 clicks AS (
@@ -507,6 +509,8 @@ clicks AS (
         c.uuid as campaign_uuid,
         c.name as campaign_name,
         c.subject as campaign_subject,
+        -- Display colour for the campaign chip in the Activity tab.
+        c.color as campaign_color,
         COUNT(*) as click_count,
         MAX(lc.created_at) as last_clicked_at
     FROM link_clicks lc
@@ -523,7 +527,7 @@ clicks AS (
         AND (later.created_at, later.id) > (lc.created_at, lc.id)
         AND later.created_at <= lc.created_at + INTERVAL '5 seconds'
     )
-    GROUP BY l.id, l.url, c.id, c.uuid, c.name, c.subject
+    GROUP BY l.id, l.url, c.id, c.uuid, c.name, c.subject, c.color
     ORDER BY last_clicked_at DESC
 )
 SELECT

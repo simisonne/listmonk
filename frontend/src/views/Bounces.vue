@@ -49,7 +49,7 @@
 
       <b-table-column v-slot="props" field="campaign" :label="$tc('globals.terms.campaign')" sortable>
         <router-link v-if="props.row.campaign" :to="{ name: 'bounces', query: { campaign_id: props.row.campaign.id } }">
-          {{ props.row.campaign.name }}
+          <span class="campaign-name-chip" :style="$utils.campaignChipStyle(props.row.campaign)" />{{ props.row.campaign.name }}
         </router-link>
         <span v-else>-</span>
       </b-table-column>

@@ -130,7 +130,13 @@ CREATE TABLE campaigns (
 
     started_at       TIMESTAMP WITH TIME ZONE,
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+    -- Display colour of the campaign, a #rrggbb hex. Empty means auto,
+    -- where the UI derives one deterministically from the id.
+    -- Added last so fresh installs match the column order of an
+    -- upgraded database (ALTER TABLE ADD COLUMN appends).
+    color            TEXT NOT NULL DEFAULT ''
 );
 DROP INDEX IF EXISTS idx_camps_status; CREATE INDEX idx_camps_status ON campaigns(status);
 DROP INDEX IF EXISTS idx_camps_name; CREATE INDEX idx_camps_name ON campaigns(name);

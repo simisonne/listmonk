@@ -743,6 +743,72 @@ body.is-noscroll {
   }
 }
 
+/* Leading colour chip in front of every campaign name. Squircle, never a
+   pill. Inline styles from $utils.campaignChipStyle() supply the tint
+   background (background-color), the deep fill (color, painted as a small
+   square by the currentColor gradient) and the 1px deep border at 25% alpha
+   (border-color). One element, so it stays a single short span in templates. */
+.campaign-name-chip {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background-color: $white-ter;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 55% 55%;
+  color: $grey;
+  vertical-align: -0.1em;
+  flex: 0 0 auto;
+}
+
+/* Swatch picker for the campaign colour on the campaign form. Same recipe
+   as the chip: tint background, deep text, 1px deep border at 25% alpha,
+   all set inline from $utils.campaignSwatchStyle(). */
+.campaign-color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.campaign-color-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: $white-ter;
+  color: $grey;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  &:not(:disabled):hover {
+    filter: brightness(0.97);
+  }
+
+  &.is-active {
+    box-shadow: 0 0 0 2px currentColor;
+  }
+
+  .campaign-color-dot {
+    width: 0.8em;
+    height: 0.8em;
+    border-radius: 4px;
+    background: currentColor;
+    flex: 0 0 auto;
+  }
+}
+
 
 /* Page header */
 .page-header {

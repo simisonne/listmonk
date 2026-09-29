@@ -42,7 +42,7 @@ SELECT COUNT(*) OVER () AS total,
     subscribers.status as subscriber_status,
     (
         CASE WHEN bounces.campaign_id IS NOT NULL
-        THEN JSON_BUILD_OBJECT('id', bounces.campaign_id, 'name', campaigns.name)
+        THEN JSON_BUILD_OBJECT('id', bounces.campaign_id, 'name', campaigns.name, 'color', campaigns.color)
         ELSE NULL END
     ) AS campaign
 FROM bounces

@@ -15,7 +15,7 @@
           </span>
         </p>
         <h4 v-if="isEditing" class="title is-4">
-          {{ data.name }}
+          <span class="campaign-name-chip" :style="$utils.campaignChipStyle(data)" />{{ data.name }}
         </h4>
         <h4 v-else class="title is-4">
           {{ $t('campaigns.newCampaign') }}
@@ -75,6 +75,24 @@
                   <b-input :maxlength="200" :ref="'focus'" v-model="form.name" name="name"
                     :disabled="!canEdit && !canRename"
                     :placeholder="$t('globals.fields.name')" required autofocus />
+                </b-field>
+
+                <b-field :label="$t('campaigns.color')" label-position="on-border" :message="$t('campaigns.colorHelp')">
+                  <div class="campaign-color-picker" role="group" :aria-label="$t('campaigns.color')">
+                    <button type="button" class="campaign-color-swatch" data-cy="color-auto"
+                      :class="{ 'is-active': !form.color }" :style="$utils.campaignSwatchStyle(null)"
+                      :disabled="!canEdit" :aria-pressed="!form.color" @click="form.color = ''">
+                      <span class="campaign-color-dot" />
+                      <span class="campaign-color-label">{{ $t('campaigns.colorAuto') }}</span>
+                    </button>
+                    <button v-for="p in palette" :key="p.key" type="button" class="campaign-color-swatch"
+                      :class="{ 'is-active': form.color === p.base }" :style="$utils.campaignSwatchStyle(p)"
+                      :disabled="!canEdit" :aria-pressed="form.color === p.base" :title="p.base"
+                      :data-cy="`color-${p.key}`" @click="form.color = p.base">
+                      <span class="campaign-color-dot" :style="{ background: p.base }" />
+                      <span class="campaign-color-label">{{ p.base }}</span>
+                    </button>
+                  </div>
                 </b-field>
 
                 <b-field :label="$t('campaigns.subject')" label-position="on-border">
@@ -339,6 +357,7 @@ import CampaignPreview from '../components/CampaignPreview.vue';
 import CopyText from '../components/CopyText.vue';
 import Editor from '../components/Editor.vue';
 import ListSelector from '../components/ListSelector.vue';
+import { CAMPAIGN_PALETTE } from '../utils';
 import Media from './Media.vue';
 
 export default Vue.extend({
@@ -377,6 +396,7 @@ export default Vue.extend({
       form: {
         archiveSlug: null,
         name: '',
+        color: '',
         subject: '',
         fromEmail: '',
         headersStr: '[]',
@@ -526,6 +546,9 @@ export default Vue.extend({
         this.form = {
           ...this.form,
           ...data,
+          // Keep the colour as an empty string when the API has none, so the
+          // swatch picker keeps showing "Auto" instead of an empty value.
+          color: data.color || '',
           headersStr: JSON.stringify(data.headers, null, 4),
           archiveMetaStr: data.archiveMeta ? JSON.stringify(data.archiveMeta, null, 4) : '{}',
           attribsStr: data.attribs ? JSON.stringify(data.attribs, null, 4) : '{}',
@@ -578,6 +601,7 @@ export default Vue.extend({
       const data = {
         archiveSlug: this.form.subject,
         name: this.form.name,
+        color: this.form.color,
         subject: this.form.subject,
         lists: this.form.lists.map((l) => l.id),
         from_email: this.form.fromEmail,
@@ -601,6 +625,7 @@ export default Vue.extend({
       const data = {
         archive_slug: this.form.archiveSlug,
         name: this.form.name,
+        color: this.form.color,
         subject: this.form.subject,
         lists: this.form.lists.map((l) => l.id),
         from_email: this.form.fromEmail,
@@ -753,6 +778,11 @@ export default Vue.extend({
 
     otherMessengers() {
       return this.serverConfig.messengers.filter((m) => m !== 'email' && !m.startsWith('email-'));
+    },
+
+    // Colours offered by the swatch picker.
+    palette() {
+      return CAMPAIGN_PALETTE;
     },
   },
 

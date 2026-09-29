@@ -87,7 +87,7 @@
               {{ $t('lists.optin') }}
             </b-tag>
             <router-link :to="{ name: 'campaign', params: { id: props.row.id } }">
-              {{ props.row.name }}
+              <span class="campaign-name-chip" :style="$utils.campaignChipStyle(props.row)" />{{ props.row.name }}
               <copy-text :text="props.row.name" hide-text />
             </router-link>
           </p>
@@ -443,6 +443,7 @@ export default Vue.extend({
 
       const data = {
         name,
+        color: c.color,
         subject: c.subject,
         lists: c.lists.map((l) => l.id),
         type: c.type,

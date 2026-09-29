@@ -40,7 +40,7 @@
           <b-table-column v-slot="props" field="subject" :label="$tc('globals.terms.campaign', 1)" sortable>
             <div v-if="props.row.uuid">
               <router-link :to="{ name: 'campaign', params: { id: props.row.id } }">
-                {{ props.row.name }}
+                <span class="campaign-name-chip" :style="$utils.campaignChipStyle(props.row)" />{{ props.row.name }}
               </router-link>
               <p class="is-size-7 has-text-grey">{{ props.row.subject }}</p>
             </div>
@@ -84,7 +84,8 @@
           <b-table-column v-slot="props" field="campaignName" :label="$tc('globals.terms.campaign', 1)" sortable>
             <div v-if="props.row.campaignUuid">
               <router-link :to="{ name: 'campaign', params: { id: props.row.campaignId } }">
-                {{ props.row.campaignSubject || props.row.campaignName }}
+                <span class="campaign-name-chip"
+                  :style="$utils.campaignChipStyle({ id: props.row.campaignId, color: props.row.campaignColor })" />{{ props.row.campaignSubject || props.row.campaignName }}
               </router-link>
             </div>
             <div v-else>

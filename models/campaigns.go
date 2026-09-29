@@ -43,6 +43,7 @@ type Campaign struct {
 	UUID              string          `db:"uuid" json:"uuid"`
 	Type              string          `db:"type" json:"type"`
 	Name              string          `db:"name" json:"name"`
+	Color             string          `db:"color" json:"color"`
 	Subject           string          `db:"subject" json:"subject"`
 	FromEmail         string          `db:"from_email" json:"from_email"`
 	Body              string          `db:"body" json:"body"`

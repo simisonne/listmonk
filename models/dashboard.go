@@ -11,6 +11,7 @@ type DashboardEvent struct {
 	CreatedAt      time.Time `db:"created_at" json:"created_at"`
 	CampaignID     *int      `db:"campaign_id" json:"campaign_id"`
 	CampaignName   *string   `db:"campaign_name" json:"campaign_name"`
+	CampaignColor  *string   `db:"campaign_color" json:"campaign_color"`
 	SubscriberID   *int      `db:"subscriber_id" json:"subscriber_id"`
 	Email          *string   `db:"email" json:"email"`
 	SubscriberName *string   `db:"subscriber_name" json:"subscriber_name"`

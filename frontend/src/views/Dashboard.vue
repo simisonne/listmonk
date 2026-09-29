@@ -169,20 +169,33 @@
                     </template>
                     <template v-if="e.type === 'campaign_sent'">
                       <template v-if="e.campaignId">
-                        Campaign sent: <router-link :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || `#${e.campaignId}` }}</router-link>
+                        Campaign sent:
+                        <router-link :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">
+                          <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || `#${e.campaignId}` }}
+                        </router-link>
                       </template>
-                      <template v-else>Campaign sent: {{ e.campaignName || 'a campaign' }}</template>
+                      <template v-else>
+                        Campaign sent: <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                      </template>
                     </template>
                     <template v-else-if="e.type === 'open'">
                       opened
-                      <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || 'a campaign' }}</router-link>
-                      <template v-else>{{ e.campaignName || 'a campaign' }}</template>
+                      <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">
+                        <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                      </router-link>
+                      <template v-else>
+                        <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                      </template>
                       <template v-if="e.openCount > 1"> ({{ ordinal(e.openCount) }} time)</template>
                     </template>
                     <template v-else-if="e.type === 'click'">
                       clicked a link in
-                      <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || 'a campaign' }}</router-link>
-                      <template v-else>{{ e.campaignName || 'a campaign' }}</template>
+                      <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">
+                        <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                      </router-link>
+                      <template v-else>
+                        <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                      </template>
                       <template v-if="e.openCount > 1"> ({{ ordinal(e.openCount) }} time)</template>
                     </template>
                     <template v-else-if="e.type === 'optin'">joined {{ e.listName || 'a public list' }}</template>
@@ -307,6 +320,11 @@ export default Vue.extend({
         track_played: 'music',
         track_downloaded: 'download',
       }[type] || 'bell-outline';
+    },
+
+    // Inline style for the colour chip leading a campaign name in an event.
+    campChip(e) {
+      return this.$utils.campaignChipStyle({ id: e.campaignId, color: e.campaignColor });
     },
 
     // Melodies site events stay as plain text: nothing in them is clickable.

@@ -9,13 +9,13 @@ SELECT data FROM mat_dashboard_counts;
 -- opens, link clicks and opt-ins to public lists, newest first.
 SELECT * FROM (
     SELECT 'campaign_sent' AS type, COALESCE(started_at, updated_at) AS created_at,
-        id AS campaign_id, name AS campaign_name,
+        id AS campaign_id, name AS campaign_name, color AS campaign_color,
         NULL::INTEGER AS subscriber_id, NULL::TEXT AS email, NULL::TEXT AS subscriber_name,
         NULL::TEXT AS list_name, NULL::TEXT AS url, NULL::TEXT AS track,
         NULL::INTEGER AS open_count
     FROM campaigns WHERE started_at IS NOT NULL
     UNION ALL
-    SELECT 'open', v.created_at, v.campaign_id, c.name,
+    SELECT 'open', v.created_at, v.campaign_id, c.name, c.color,
         v.subscriber_id, s.email, s.name, NULL, NULL, NULL,
         CASE WHEN v.subscriber_id IS NULL THEN NULL
             ELSE ROW_NUMBER() OVER (
@@ -47,7 +47,7 @@ SELECT * FROM (
         AND later.created_at <= v.created_at + INTERVAL '5 seconds'
     )
     UNION ALL
-    SELECT 'click', lc.created_at, lc.campaign_id, c.name,
+    SELECT 'click', lc.created_at, lc.campaign_id, c.name, c.color,
         lc.subscriber_id, s.email, s.name, NULL, l.url, NULL,
         -- Click counts number the subscriber's clicks on the same link,
         -- mirroring the open count numbering above.
@@ -71,14 +71,14 @@ SELECT * FROM (
         AND later.created_at <= lc.created_at + INTERVAL '5 seconds'
     )
     UNION ALL
-    SELECT 'optin', sl.created_at, NULL, NULL,
+    SELECT 'optin', sl.created_at, NULL, NULL, NULL::TEXT,
         sl.subscriber_id, s.email, s.name, l.name, NULL, NULL, NULL
     FROM subscriber_lists sl
     JOIN lists l ON l.id = sl.list_id
     JOIN subscribers s ON s.id = sl.subscriber_id
     WHERE l.type = 'public' AND sl.status != 'unsubscribed'
     UNION ALL
-    SELECT 'unsubscribe', sl.updated_at, NULL, NULL,
+    SELECT 'unsubscribe', sl.updated_at, NULL, NULL, NULL::TEXT,
         sl.subscriber_id, s.email, s.name, l.name, NULL, NULL, NULL
     FROM subscriber_lists sl
     JOIN lists l ON l.id = sl.list_id

@@ -14,6 +14,51 @@ dayjs.extend(dayDuration);
 const reEmail = /(.+?)@(.+?)/ig;
 const prefKey = 'listmonk_pref';
 
+// Campaign palette. The order is load bearing: the SQL fallback in
+// internal/migrations/v6.7.0.go picks the entry at (id % N) from this exact
+// list, so both sides have to stay identical entry for entry.
+export const CAMPAIGN_PALETTE = [
+  {
+    key: 'tt-onboard', base: '#14B8A6', tint: '#CCFBF1', deep: '#0F766E',
+  },
+  {
+    key: 'tt-one-off', base: '#6366F1', tint: '#E0E7FF', deep: '#4338CA',
+  },
+  {
+    key: 'ig-onboard', base: '#EC4899', tint: '#FCE7F3', deep: '#BE185D',
+  },
+  {
+    key: 'email-list', base: '#3E6FBF', tint: '#DBEAFE', deep: '#1E4FA8',
+  },
+  {
+    key: 'bs-loopkit', base: '#F59E0B', tint: '#FEF3C7', deep: '#B45309',
+  },
+  {
+    key: 'emerald', base: '#10B981', tint: '#D1FAE5', deep: '#047857',
+  },
+  {
+    key: 'violet', base: '#8B5CF6', tint: '#EDE9FE', deep: '#6D28D9',
+  },
+  {
+    key: 'cyan', base: '#0891B2', tint: '#CFFAFE', deep: '#0E7490',
+  },
+];
+
+// #rrggbb (or #rgb) hex plus an alpha as an rgba() string, for inline styles.
+const withAlpha = (hex, alpha) => {
+  let h = String(hex || '').replace('#', '');
+  if (h.length === 3) {
+    h = h.split('').map((c) => c + c).join('');
+  }
+  if (h.length !== 6 || /[^0-9a-f]/i.test(h)) {
+    return `rgba(0, 0, 0, ${alpha})`;
+  }
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const htmlEntities = {
   '&': '&amp;',
   '<': '&lt;',
@@ -242,6 +287,58 @@ export default class Utils {
     }
 
     return obj;
+  };
+
+  // Palette entry for a campaign. An explicit campaigns.color that is in the
+  // palette wins, any other stored colour is used as-is (washed out for the
+  // chip background), and an empty colour falls back to the id % N entry that
+  // mirrors the SQL backfill in internal/migrations/v6.7.0.go.
+  campaignPalette = (campaign) => {
+    const color = String((campaign && campaign.color) || '').trim().toLowerCase();
+    const id = parseInt((campaign && campaign.id), 10);
+
+    if (color) {
+      const hit = CAMPAIGN_PALETTE.find((p) => p.base === color);
+      if (hit) {
+        return { ...hit, known: true };
+      }
+      return {
+        key: 'custom', base: color, tint: withAlpha(color, 0.15), deep: color, known: false,
+      };
+    }
+
+    const n = CAMPAIGN_PALETTE.length;
+    const idx = Number.isNaN(id) ? 0 : ((id % n) + n) % n;
+    return { ...CAMPAIGN_PALETTE[idx], known: true };
+  };
+
+  // Inline style for the squircle chip leading every campaign name: tint
+  // background, deep text colour, 1px deep border at 25% alpha.
+  campaignChipStyle = (campaign) => {
+    const p = this.campaignPalette(campaign);
+    return {
+      backgroundColor: p.tint,
+      color: p.deep,
+      borderColor: withAlpha(p.deep, 0.25),
+    };
+  };
+
+  // Inline style for one swatch in the campaign colour picker: the same
+  // recipe as the chip (tint background, deep text, deep border at 25% alpha).
+  // No palette entry means "auto", which stays neutral grey.
+  campaignSwatchStyle = (paletteEntry) => {
+    if (!paletteEntry) {
+      return {
+        backgroundColor: '#f5f5f5',
+        color: '#4a4a4a',
+        borderColor: withAlpha('#4a4a4a', 0.25),
+      };
+    }
+    return {
+      backgroundColor: paletteEntry.tint,
+      color: paletteEntry.deep,
+      borderColor: withAlpha(paletteEntry.deep, 0.25),
+    };
   };
 
   getPref = (key) => {

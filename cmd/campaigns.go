@@ -48,6 +48,7 @@ type campContentReq struct {
 
 var (
 	reFromAddress = regexp.MustCompile(`((.+?)\s)?<(.+?)@(.+?)>`)
+	reHexColor    = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 	reSlug        = regexp.MustCompile(`[^\p{L}\p{M}\p{N}]`)
 )
 
@@ -740,6 +741,16 @@ func (a *App) validateCampaignFields(c campReq) (campReq, error) {
 	// Larger char limit for subject as it can contain {{ go templating }} logic.
 	if !strHasLen(c.Subject, 1, 5000) {
 		return c, errors.New(a.i18n.T("campaigns.fieldInvalidSubject"))
+	}
+
+	// The campaign colour is an optional #rrggbb hex. An empty value means
+	// auto, where the UI picks a palette colour from the campaign ID.
+	c.Color = strings.TrimSpace(c.Color)
+	if c.Color != "" {
+		if !reHexColor.MatchString(c.Color) {
+			return c, errors.New(a.i18n.T("campaigns.fieldInvalidColor"))
+		}
+		c.Color = strings.ToLower(c.Color)
 	}
 
 	// If no content-type is specified, default to richtext.
