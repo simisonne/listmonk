@@ -283,11 +283,11 @@ export default Vue.extend({
         this.campaignClicks = this.makeChart(data.linkClicks);
       });
 
-      // Fetch the 40 newest events once; the card shows 10 until expanded.
+      // Fetch the 80 newest events once; the card shows 10 until expanded.
       if (!quiet) {
         this.isEventsLoading = true;
       }
-      this.$api.getDashboardEvents(40).then((data) => {
+      this.$api.getDashboardEvents(80).then((data) => {
         this.events = data;
         this.isEventsLoading = false;
       });
