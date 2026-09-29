@@ -95,7 +95,7 @@ func New(cfg Config, db *sql.DB, cb *Callbacks, lo *log.Logger) (*Auth, error) {
 			MaxAge:     time.Hour * 24 * 7,
 		},
 	})
-	st, err := postgres.New(postgres.Opt{}, db)
+	st, err := postgres.New(postgres.Opt{TTL: time.Hour * 24 * 7}, db)
 	if err != nil {
 		return nil, err
 	}
