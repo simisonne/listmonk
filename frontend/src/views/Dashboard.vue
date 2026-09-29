@@ -171,30 +171,30 @@
                       <template v-if="e.campaignId">
                         Campaign sent:
                         <router-link :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">
-                          <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || `#${e.campaignId}` }}
+                          <span class="campaign-name-hl" :style="campChip(e)">{{ e.campaignName || `#${e.campaignId}` }}</span>
                         </router-link>
                       </template>
                       <template v-else>
-                        Campaign sent: <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                        Campaign sent: <span class="campaign-name-hl" :style="campChip(e)">{{ e.campaignName || 'a campaign' }}</span>
                       </template>
                     </template>
                     <template v-else-if="e.type === 'open'">
                       opened
                       <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">
-                        <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                        <span class="campaign-name-hl" :style="campChip(e)">{{ e.campaignName || 'a campaign' }}</span>
                       </router-link>
                       <template v-else>
-                        <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                        <span class="campaign-name-hl" :style="campChip(e)">{{ e.campaignName || 'a campaign' }}</span>
                       </template>
                       <template v-if="e.openCount > 1"> ({{ ordinal(e.openCount) }} time)</template>
                     </template>
                     <template v-else-if="e.type === 'click'">
                       clicked a link in
                       <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">
-                        <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                        <span class="campaign-name-hl" :style="campChip(e)">{{ e.campaignName || 'a campaign' }}</span>
                       </router-link>
                       <template v-else>
-                        <span class="campaign-name-chip" :style="campChip(e)" />{{ e.campaignName || 'a campaign' }}
+                        <span class="campaign-name-hl" :style="campChip(e)">{{ e.campaignName || 'a campaign' }}</span>
                       </template>
                       <template v-if="e.openCount > 1"> ({{ ordinal(e.openCount) }} time)</template>
                     </template>
@@ -210,7 +210,7 @@
               <p v-else-if="!isEventsLoading" class="has-text-grey">
                 {{ $t('dashboard.noEvents') }}
               </p>
-              <a v-if="events.length > 5" href="#" class="toggle"
+              <a v-if="events.length > 10" href="#" class="toggle"
                 @click.prevent="eventsExpanded = !eventsExpanded">
                 {{ eventsExpanded ? $t('dashboard.showLess') : $t('dashboard.showMore') }}
               </a>
@@ -281,11 +281,11 @@ export default Vue.extend({
         this.campaignClicks = this.makeChart(data.linkClicks);
       });
 
-      // Fetch the 20 newest events once; the card shows 5 until expanded.
+      // Fetch the 40 newest events once; the card shows 10 until expanded.
       if (!quiet) {
         this.isEventsLoading = true;
       }
-      this.$api.getDashboardEvents(20).then((data) => {
+      this.$api.getDashboardEvents(40).then((data) => {
         this.events = data;
         this.isEventsLoading = false;
       });
@@ -406,7 +406,7 @@ export default Vue.extend({
       if (this.eventsExpanded) {
         return this.events;
       }
-      return this.events.slice(0, 5);
+      return this.events.slice(0, 10);
     },
   },
 

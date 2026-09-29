@@ -743,30 +743,24 @@ body.is-noscroll {
   }
 }
 
-/* Leading colour chip in front of every campaign name. Squircle, never a
-   pill. Inline styles from $utils.campaignChipStyle() supply the tint
-   background (background-color), the deep fill (color, painted as a small
-   square by the currentColor gradient) and the 1px deep border at 25% alpha
-   (border-color). One element, so it stays a single short span in templates. */
-.campaign-name-chip {
-  display: inline-block;
-  width: 0.9em;
-  height: 0.9em;
-  margin-right: 5px;
+/* Campaign name highlight: the tint colour sits behind the name text itself.
+   Square cut (2px radius), never a pill. Inline styles from
+   $utils.campaignChipStyle() supply the tint background (background-color),
+   the deep text fill (color) and the 1px deep border at 25% alpha
+   (border-color). */
+.campaign-name-hl {
+  display: inline;
+  padding: 1px 6px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 2px;
   background-color: $white-ter;
-  background-image: linear-gradient(currentColor, currentColor);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 55% 55%;
   color: $grey;
-  vertical-align: -0.1em;
-  flex: 0 0 auto;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 /* Swatch picker for the campaign colour on the campaign form. Same recipe
-   as the chip: tint background, deep text, 1px deep border at 25% alpha,
+   as the highlight: tint background, deep text, 1px deep border at 25% alpha,
    all set inline from $utils.campaignSwatchStyle(). */
 .campaign-color-picker {
   display: flex;

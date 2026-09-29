@@ -15,7 +15,7 @@
           </span>
         </p>
         <h4 v-if="isEditing" class="title is-4">
-          <span class="campaign-name-chip" :style="$utils.campaignChipStyle(data)" />{{ data.name }}
+          <span class="campaign-name-hl" :style="$utils.campaignChipStyle(data)">{{ data.name }}</span>
         </h4>
         <h4 v-else class="title is-4">
           {{ $t('campaigns.newCampaign') }}

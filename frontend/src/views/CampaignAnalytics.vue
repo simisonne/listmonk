@@ -23,7 +23,7 @@
               :before-adding="isCampaignSelected" @typing="queryCampaigns" @focus="queryCampaigns" field="name"
               :loading="isSearchLoading">
               <template #tag="{ tag }">
-                <span class="campaign-name-chip" :style="$utils.campaignChipStyle(tag)" />{{ tag.name }}
+                <span class="campaign-name-hl" :style="$utils.campaignChipStyle(tag)">{{ tag.name }}</span>
               </template>
             </b-taginput>
           </b-field>

@@ -291,7 +291,7 @@ export default class Utils {
 
   // Palette entry for a campaign. An explicit campaigns.color that is in the
   // palette wins, any other stored colour is used as-is (washed out for the
-  // chip background), and an empty colour falls back to the id % N entry that
+  // highlight background), and an empty colour falls back to the id % N entry that
   // mirrors the SQL backfill in internal/migrations/v6.7.0.go.
   campaignPalette = (campaign) => {
     const color = String((campaign && campaign.color) || '').trim().toLowerCase();
@@ -312,7 +312,7 @@ export default class Utils {
     return { ...CAMPAIGN_PALETTE[idx], known: true };
   };
 
-  // Inline style for the squircle chip leading every campaign name: tint
+  // Inline style for the highlight behind every campaign name: tint
   // background, deep text colour, 1px deep border at 25% alpha.
   campaignChipStyle = (campaign) => {
     const p = this.campaignPalette(campaign);
@@ -324,7 +324,7 @@ export default class Utils {
   };
 
   // Inline style for one swatch in the campaign colour picker: the same
-  // recipe as the chip (tint background, deep text, deep border at 25% alpha).
+  // recipe as the highlight (tint background, deep text, deep border at 25% alpha).
   // No palette entry means "auto", which stays neutral grey.
   campaignSwatchStyle = (paletteEntry) => {
     if (!paletteEntry) {

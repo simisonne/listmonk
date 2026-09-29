@@ -118,7 +118,7 @@
               <b-table-column field="campaign" :label="$tc('globals.terms.campaign', 1)" v-slot="props">
                 <div v-if="props.row.campaign">
                   <router-link :to="{ name: 'bounces', query: { campaign_id: props.row.campaign.id } }">
-                    <span class="campaign-name-chip" :style="$utils.campaignChipStyle(props.row.campaign)" />{{ props.row.campaign.name }}
+                    <span class="campaign-name-hl" :style="$utils.campaignChipStyle(props.row.campaign)">{{ props.row.campaign.name }}</span>
                   </router-link>
                 </div>
               </b-table-column>

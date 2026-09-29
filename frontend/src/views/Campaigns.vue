@@ -87,7 +87,7 @@
               {{ $t('lists.optin') }}
             </b-tag>
             <router-link :to="{ name: 'campaign', params: { id: props.row.id } }">
-              <span class="campaign-name-chip" :style="$utils.campaignChipStyle(props.row)" />{{ props.row.name }}
+              <span class="campaign-name-hl" :style="$utils.campaignChipStyle(props.row)">{{ props.row.name }}</span>
               <copy-text :text="props.row.name" hide-text />
             </router-link>
           </p>
