@@ -48,7 +48,14 @@ SELECT * FROM (
     )
     UNION ALL
     SELECT 'click', lc.created_at, lc.campaign_id, c.name,
-        lc.subscriber_id, s.email, s.name, NULL, l.url, NULL, NULL
+        lc.subscriber_id, s.email, s.name, NULL, l.url, NULL,
+        -- Click counts number the subscriber's clicks on the same link,
+        -- mirroring the open count numbering above.
+        CASE WHEN lc.subscriber_id IS NULL THEN NULL
+            ELSE ROW_NUMBER() OVER (
+                PARTITION BY lc.campaign_id, lc.subscriber_id, lc.link_id
+                ORDER BY lc.created_at, lc.id)
+        END::INTEGER
     FROM link_clicks lc
     JOIN links l ON l.id = lc.link_id
     LEFT JOIN campaigns c ON c.id = lc.campaign_id

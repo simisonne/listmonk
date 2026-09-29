@@ -183,6 +183,7 @@
                       clicked a link in
                       <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || 'a campaign' }}</router-link>
                       <template v-else>{{ e.campaignName || 'a campaign' }}</template>
+                      <template v-if="e.openCount > 1"> ({{ ordinal(e.openCount) }} time)</template>
                     </template>
                     <template v-else-if="e.type === 'optin'">joined {{ e.listName || 'a public list' }}</template>
                     <template v-else-if="e.type === 'unsubscribe'">left {{ e.listName || 'a list' }}</template>
