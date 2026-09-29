@@ -45,7 +45,7 @@ export const CAMPAIGN_PALETTE = [
 ];
 
 export const EVENT_COLORS = {
-  melodies: { base: '#8B5CF6', deep: '#6D28D9' },
+  melodies: { base: '#65A30D', deep: '#3F6212' },
   negative: { base: '#EF4444', deep: '#B91C1C' },
 };
 
@@ -329,8 +329,8 @@ export default class Utils {
   };
 
   // Highlight behind non-campaign event text in the dashboard feed and behind
-  // bounce rows. 'melodies' covers Melodies site activity and list optins
-  // (violet, currently unused by any campaign type), 'negative' covers
+  // 'melodies' covers Melodies site activity and list optins
+  // (lime, used by no campaign type and far from every palette hue), 'negative' covers
   // unsubscribes and bounces (red). Same low alpha as campaign names.
   eventHighlightStyle = (key) => {
     const c = EVENT_COLORS[key] || EVENT_COLORS.melodies;
