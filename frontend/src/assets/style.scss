@@ -744,14 +744,13 @@ body.is-noscroll {
 }
 
 /* Campaign name highlight: the tint colour sits behind the name text itself.
-   Square cut (2px radius), never a pill. Inline styles from
-   $utils.campaignChipStyle() supply the tint background (background-color),
-   the deep text fill (color) and the 1px deep border at 25% alpha
-   (border-color). */
+   Square cut (2px radius), no border, never a pill. Inline styles from
+   $utils.campaignChipStyle() supply the washed out tint background
+   (background-color) and the deep text fill (color). */
 .campaign-name-hl {
   display: inline;
   padding: 1px 6px;
-  border: 1px solid transparent;
+  border: none;
   border-radius: 2px;
   background-color: $white-ter;
   color: $grey;

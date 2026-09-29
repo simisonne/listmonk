@@ -312,14 +312,13 @@ export default class Utils {
     return { ...CAMPAIGN_PALETTE[idx], known: true };
   };
 
-  // Inline style for the highlight behind every campaign name: tint
-  // background, deep text colour, 1px deep border at 25% alpha.
+  // Inline style for the highlight behind every campaign name: washed out
+  // tint background, deep text colour, no border.
   campaignChipStyle = (campaign) => {
     const p = this.campaignPalette(campaign);
     return {
-      backgroundColor: p.tint,
+      backgroundColor: withAlpha(p.tint, 0.6),
       color: p.deep,
-      borderColor: withAlpha(p.deep, 0.25),
     };
   };
 
