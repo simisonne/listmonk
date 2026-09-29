@@ -177,7 +177,7 @@
                       opened
                       <router-link v-if="e.campaignId" :to="{ name: 'campaignAnalytics', query: { id: e.campaignId } }">{{ e.campaignName || 'a campaign' }}</router-link>
                       <template v-else>{{ e.campaignName || 'a campaign' }}</template>
-                      <template v-if="e.openCount"> ({{ ordinal(e.openCount) }} time)</template>
+                      <template v-if="e.openCount > 1"> ({{ ordinal(e.openCount) }} time)</template>
                     </template>
                     <template v-else-if="e.type === 'click'">
                       clicked a link in
