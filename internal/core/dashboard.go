@@ -42,13 +42,13 @@ func (c *Core) GetDashboardCounts() (types.JSONText, error) {
 // GetDashboardEvents returns the newest dashboard events (campaign sends,
 // opens, clicks and public list opt-ins from the DB, merged with melodies
 // site activity from the PI-Website activity log), newest first, capped
-// at lim (clamped to 1-20).
+// at lim (clamped to 1-100).
 func (c *Core) GetDashboardEvents(lim int) ([]models.DashboardEvent, error) {
 	if lim < 1 {
 		lim = 5
 	}
-	if lim > 20 {
-		lim = 20
+	if lim > 100 {
+		lim = 100
 	}
 
 	out := []models.DashboardEvent{}
