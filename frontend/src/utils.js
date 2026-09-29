@@ -25,7 +25,7 @@ export const CAMPAIGN_PALETTE = [
     key: 'tt-one-off', base: '#6366F1', tint: '#E0E7FF', deep: '#4338CA',
   },
   {
-    key: 'ig-onboard', base: '#EC4899', tint: '#FCE7F3', deep: '#BE185D',
+    key: 'ig-onboard', base: '#C026D3', tint: '#FAE8FF', deep: '#A21CAF',
   },
   {
     key: 'email-list', base: '#3E6FBF', tint: '#DBEAFE', deep: '#1E4FA8',
