@@ -132,6 +132,9 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 			ev.Browser = &b
 		}
 		if l := parseMelodiesMetaToken(m[4], "loc"); l != "" {
+			if isHiddenLocation(l) {
+				continue
+			}
 			ev.Location = &l
 		}
 		if r := parseMelodiesMetaToken(m[4], "ref"); r != "" {
@@ -140,10 +143,38 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 		if p := parseMelodiesMetaToken(m[4], "path"); p != "" {
 			ev.Path = &p
 		}
+		if ip := parseMelodiesMetaToken(m[4], "ip"); ip != "" {
+			ev.IP = &ip
+		}
 		out = append(out, ev)
 	}
 
 	return out
+}
+
+// hiddenLocationCities lists the cities whose visits are kept out of the
+// dashboard feed because they always come from Simon's own machine. The
+// activity log keeps every line untouched, this only filters at read time.
+var hiddenLocationCities = []string{"Regensburg"}
+
+// isHiddenLocation reports whether a loc= token such as Regensburg_DE
+// belongs to a hidden city. Only the city part before the last underscore
+// is compared, case insensitively. Lines without a location are never
+// hidden.
+func isHiddenLocation(loc string) bool {
+	if loc == "" {
+		return false
+	}
+	city := loc
+	if i := strings.LastIndex(loc, "_"); i != -1 {
+		city = loc[:i]
+	}
+	for _, c := range hiddenLocationCities {
+		if strings.EqualFold(city, c) {
+			return true
+		}
+	}
+	return false
 }
 
 // parseMelodiesTrack extracts the song= value from the trailing meta of a
@@ -171,6 +202,7 @@ var melodiesMetaTokenRes = map[string]*regexp.Regexp{
 	"loc":     regexp.MustCompile(`(?:^|\s)loc=(\S+)`),
 	"ref":     regexp.MustCompile(`(?:^|\s)ref=(\S+)`),
 	"path":    regexp.MustCompile(`(?:^|\s)path=(\S+)`),
+	"ip":      regexp.MustCompile(`(?:^|\s)ip=(\S+)`),
 }
 
 // parseMelodiesMetaToken extracts a single token value such as device=iPhone

@@ -345,14 +345,17 @@ export default Vue.extend({
       return ['site_visit', 'track_played', 'track_downloaded'].indexOf(type) !== -1;
     },
 
-    // " (iPhone, Safari)" suffix for melodies events, empty when the log
-    // line predates the device / browser fields.
+    // " (iPhone, Safari) from Berlin, DE" suffix for melodies events,
+    // empty when the log line predates the device / browser fields and
+    // carries no (or a private) location.
     melodiesDetail(e) {
       const parts = [e.device, e.browser].filter((v) => v);
-      if (!parts.length) {
-        return '';
+      let out = parts.length ? ` (${parts.join(', ')})` : '';
+      const loc = this.prettyLocation(e.location);
+      if (loc) {
+        out += ` from ${loc}`;
       }
-      return ` (${parts.join(', ')})`;
+      return out;
     },
 
     // ": education" page suffix for portfolio visits, empty for the home
@@ -371,14 +374,18 @@ export default Vue.extend({
       return (e.ref || '').replace(/^@/, '');
     },
 
-    // " (iPhone, Safari) from Berlin, DE" suffix for portfolio events.
-    // Private and unknown locations stay hidden.
+    // " (iPhone, Safari) from Berlin, DE (203.0.113.9)" suffix for
+    // portfolio events. Private and unknown locations stay hidden, the
+    // client IP always goes last in parentheses when the log carried one.
     siteDetail(e) {
       const parts = [e.device, e.browser].filter((v) => v);
       let out = parts.length ? ` (${parts.join(', ')})` : '';
       const loc = this.prettyLocation(e.location);
       if (loc) {
         out += ` from ${loc}`;
+      }
+      if (e.ip) {
+        out += ` (${e.ip})`;
       }
       return out;
     },

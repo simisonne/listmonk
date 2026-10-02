@@ -24,4 +24,5 @@ type DashboardEvent struct {
 	Location       *string   `db:"location" json:"location"`
 	Ref            *string   `db:"ref" json:"ref"`
 	Path           *string   `db:"path" json:"path"`
+	IP             *string   `db:"ip" json:"ip"`
 }
