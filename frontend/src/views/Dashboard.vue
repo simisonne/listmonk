@@ -205,6 +205,10 @@
                       :style="eventHl('melodies')">played{{ e.track ? `: ${e.track}` : ' a track' }} on the Melodies site</span>{{ melodiesDetail(e) }}</template>
                     <template v-else-if="e.type === 'track_downloaded'"><span class="campaign-name-hl"
                       :style="eventHl('melodies')">downloaded{{ e.track ? `: ${e.track}` : ' a track' }} from the Melodies site</span>{{ melodiesDetail(e) }}</template>
+                    <template v-else-if="e.type === 'portfolio_visit'"><span class="campaign-name-hl"
+                      :style="eventHl('portfolio')">visited the portfolio site{{ pageSuffix(e) }}</span>{{ siteDetail(e) }}</template>
+                    <template v-else-if="e.type === 'portfolio_referral'"><span class="campaign-name-hl"
+                      :style="eventHl('referral')">visited the portfolio site via your @{{ refName(e) }} link</span>{{ siteDetail(e) }}</template>
                     <template v-else>{{ e.type }}</template>
                   </span>
                 </li>
@@ -321,6 +325,8 @@ export default Vue.extend({
         site_visit: 'web',
         track_played: 'music',
         track_downloaded: 'download',
+        portfolio_visit: 'web',
+        portfolio_referral: 'link-variant',
       }[type] || 'bell-outline';
     },
 
@@ -347,6 +353,49 @@ export default Vue.extend({
         return '';
       }
       return ` (${parts.join(', ')})`;
+    },
+
+    // ": education" page suffix for portfolio visits, empty for the home
+    // page or when the log line carries no path.
+    pageSuffix(e) {
+      const p = e.path || '';
+      if (!p || p === '/hire-me/' || p === '/hire-me/index.html' || p === 'index.html') {
+        return '';
+      }
+      const clean = p.replace(/^\/hire-me\//, '').replace(/\.html$/, '');
+      return clean ? `: ${clean}` : '';
+    },
+
+    // The referral ref without a leading @, empty when absent.
+    refName(e) {
+      return (e.ref || '').replace(/^@/, '');
+    },
+
+    // " (iPhone, Safari) from Berlin, DE" suffix for portfolio events.
+    // Private and unknown locations stay hidden.
+    siteDetail(e) {
+      const parts = [e.device, e.browser].filter((v) => v);
+      let out = parts.length ? ` (${parts.join(', ')})` : '';
+      const loc = this.prettyLocation(e.location);
+      if (loc) {
+        out += ` from ${loc}`;
+      }
+      return out;
+    },
+
+    // Berlin_DE -> "Berlin, DE", DE -> "DE", local / unknown -> ''.
+    prettyLocation(loc) {
+      const v = loc || '';
+      if (!v || v === 'local' || v === 'unknown') {
+        return '';
+      }
+      const i = v.lastIndexOf('_');
+      if (i === -1) {
+        return v;
+      }
+      const city = v.slice(0, i);
+      const cc = v.slice(i + 1);
+      return city && cc ? `${city}, ${cc}` : (city || cc);
     },
 
     // 1 -> 1st, 2 -> 2nd, 3 -> 3rd, 4 -> 4th, 11-13 -> th.

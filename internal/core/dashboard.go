@@ -76,9 +76,11 @@ var melodiesLogLine = regexp.MustCompile(`^\[(.*?)\]\s+user=(\S*)\s+action=(\S*)
 
 // melodiesActionTypes maps PI-Website log actions to dashboard event types.
 var melodiesActionTypes = map[string]string{
-	"melodies_page": "site_visit",
-	"song_play":     "track_played",
-	"song_download": "track_downloaded",
+	"melodies_page":      "site_visit",
+	"song_play":          "track_played",
+	"song_download":      "track_downloaded",
+	"portfolio_visit":    "portfolio_visit",
+	"portfolio_referral": "portfolio_referral",
 }
 
 // readMelodiesEvents tails the PI-Website activity log (newest lines first)
@@ -98,7 +100,7 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 	out := []models.DashboardEvent{}
 	scanned := 0
 	for _, line := range strings.Split(string(data), "\n") {
-		if len(out) >= lim || scanned >= 500 {
+		if len(out) >= lim || scanned >= 2000 {
 			break
 		}
 		scanned++
@@ -129,6 +131,15 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 		if b := parseMelodiesMetaToken(m[4], "browser"); b != "" {
 			ev.Browser = &b
 		}
+		if l := parseMelodiesMetaToken(m[4], "loc"); l != "" {
+			ev.Location = &l
+		}
+		if r := parseMelodiesMetaToken(m[4], "ref"); r != "" {
+			ev.Ref = &r
+		}
+		if p := parseMelodiesMetaToken(m[4], "path"); p != "" {
+			ev.Path = &p
+		}
 		out = append(out, ev)
 	}
 
@@ -157,6 +168,9 @@ func parseMelodiesTrack(meta string) string {
 var melodiesMetaTokenRes = map[string]*regexp.Regexp{
 	"device":  regexp.MustCompile(`(?:^|\s)device=(\S+)`),
 	"browser": regexp.MustCompile(`(?:^|\s)browser=(\S+)`),
+	"loc":     regexp.MustCompile(`(?:^|\s)loc=(\S+)`),
+	"ref":     regexp.MustCompile(`(?:^|\s)ref=(\S+)`),
+	"path":    regexp.MustCompile(`(?:^|\s)path=(\S+)`),
 }
 
 // parseMelodiesMetaToken extracts a single token value such as device=iPhone

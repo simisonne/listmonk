@@ -47,6 +47,8 @@ export const CAMPAIGN_PALETTE = [
 export const EVENT_COLORS = {
   melodies: { base: '#65A30D', deep: '#3F6212' },
   negative: { base: '#EF4444', deep: '#B91C1C' },
+  portfolio: { base: '#1f5eff', deep: '#1a4bd6' },
+  referral: { base: '#7c3aed', deep: '#6425c7' },
 };
 
 // #rrggbb (or #rgb) hex plus an alpha as an rgba() string, for inline styles.

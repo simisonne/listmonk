@@ -54,3 +54,50 @@ func TestReadMelodiesEventsDeviceBrowser(t *testing.T) {
 		t.Errorf("event 4 = %+v, want track_played my cool song.mp3 iPad/Chrome", evs[4])
 	}
 }
+
+func TestReadMelodiesEventsPortfolio(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "activity_log.txt")
+	lines := `[2026-10-02 11:01:00] user=guest action=portfolio_referral ref=@tiktok device=Windows_PC browser=Edge ip=203.0.113.9 loc=Berlin_DE
+[2026-10-02 11:00:00] user=guest action=portfolio_visit path=/hire-me/education.html device=iPhone browser=Safari ip=203.0.113.9 loc=Berlin_DE
+[2026-10-02 10:59:00] user=guest action=portfolio_visit path=/hire-me/ loc=local ip=203.0.113.9
+[2026-10-02 10:58:00] user=guest action=portfolio_referral ref=google loc=DE ip=203.0.113.9
+`
+	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MELODIES_ACTIVITY_LOG", path)
+
+	evs := readMelodiesEvents(10)
+	if len(evs) != 4 {
+		t.Fatalf("got %d events, want 4", len(evs))
+	}
+
+	// Referral: ref and loc parsed alongside device.
+	if evs[0].Type != "portfolio_referral" || evs[0].Ref == nil || *evs[0].Ref != "@tiktok" ||
+		evs[0].Location == nil || *evs[0].Location != "Berlin_DE" ||
+		evs[0].Device == nil || *evs[0].Device != "Windows_PC" || evs[0].Browser == nil || *evs[0].Browser != "Edge" {
+		t.Errorf("event 0 = %+v, want portfolio_referral @tiktok Berlin_DE Windows_PC/Edge", evs[0])
+	}
+
+	// Visit: path and loc parsed alongside device and browser.
+	if evs[1].Type != "portfolio_visit" || evs[1].Path == nil || *evs[1].Path != "/hire-me/education.html" ||
+		evs[1].Location == nil || *evs[1].Location != "Berlin_DE" ||
+		evs[1].Device == nil || *evs[1].Device != "iPhone" || evs[1].Browser == nil || *evs[1].Browser != "Safari" {
+		t.Errorf("event 1 = %+v, want portfolio_visit /hire-me/education.html Berlin_DE iPhone/Safari", evs[1])
+	}
+
+	// No device or browser, ref must stay nil.
+	if evs[2].Type != "portfolio_visit" || evs[2].Path == nil || *evs[2].Path != "/hire-me/" ||
+		evs[2].Location == nil || *evs[2].Location != "local" ||
+		evs[2].Device != nil || evs[2].Browser != nil || evs[2].Ref != nil {
+		t.Errorf("event 2 = %+v, want portfolio_visit /hire-me/ loc=local and nil device, browser, ref", evs[2])
+	}
+
+	// Country only location, path must stay nil.
+	if evs[3].Type != "portfolio_referral" || evs[3].Ref == nil || *evs[3].Ref != "google" ||
+		evs[3].Location == nil || *evs[3].Location != "DE" ||
+		evs[3].Path != nil || evs[3].Device != nil || evs[3].Browser != nil {
+		t.Errorf("event 3 = %+v, want portfolio_referral google loc=DE with nil path, device, browser", evs[3])
+	}
+}
