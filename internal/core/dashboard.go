@@ -75,14 +75,16 @@ func (c *Core) GetDashboardEvents(lim int) ([]models.DashboardEvent, error) {
 var melodiesLogLine = regexp.MustCompile(`^\[(.*?)\]\s+user=(\S*)\s+action=(\S*)(.*)$`)
 
 // melodiesActionTypes maps PI-Website log actions to dashboard event types.
+// Sign ups (email_list_subscribe) are deliberately NOT here: listmonk records
+// its own optin row for the same event, with the address and list name on it,
+// so mapping the log line too showed every signup twice.
 var melodiesActionTypes = map[string]string{
-	"melodies_page":        "site_visit",
-	"song_play":            "track_played",
-	"song_download":        "track_downloaded",
-	"portfolio_visit":      "portfolio_visit",
-	"portfolio_referral":   "portfolio_referral",
-	"weekly_loops_page":    "weekly_loops_page",
-	"email_list_subscribe": "email_list_subscribe",
+	"melodies_page":      "site_visit",
+	"song_play":          "track_played",
+	"song_download":      "track_downloaded",
+	"portfolio_visit":    "portfolio_visit",
+	"portfolio_referral": "portfolio_referral",
+	"weekly_loops_page":  "weekly_loops_page",
 }
 
 // readMelodiesEvents tails the PI-Website activity log (newest lines first)
@@ -159,13 +161,23 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 // activity log keeps every line untouched, this only filters at read time.
 var hiddenLocationCities = []string{"Regensburg"}
 
-// isHiddenLocation reports whether a loc= token such as Regensburg_DE
-// belongs to a hidden city. Only the city part before the last underscore
-// is compared, case insensitively. Lines without a location are never
-// hidden.
+// hiddenLocationTokens are loc= values that can never describe a real visitor.
+// "local" is what the site writes for a private or loopback address, so the
+// only people it can be are on the Pi's own network, meaning Simon himself.
+var hiddenLocationTokens = []string{"local"}
+
+// isHiddenLocation reports whether a loc= token such as Regensburg_DE belongs
+// to a hidden city, or is one of the private network tokens. For a city only
+// the part before the last underscore is compared, case insensitively. Lines
+// without a location are never hidden.
 func isHiddenLocation(loc string) bool {
 	if loc == "" {
 		return false
+	}
+	for _, tok := range hiddenLocationTokens {
+		if strings.EqualFold(loc, tok) {
+			return true
+		}
 	}
 	city := loc
 	if i := strings.LastIndex(loc, "_"); i != -1 {

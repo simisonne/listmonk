@@ -69,8 +69,10 @@ func TestReadMelodiesEventsPortfolio(t *testing.T) {
 	t.Setenv("MELODIES_ACTIVITY_LOG", path)
 
 	evs := readMelodiesEvents(10)
-	if len(evs) != 4 {
-		t.Fatalf("got %d events, want 4", len(evs))
+	// The loc=local line is a private address, which means the Pi's own network,
+	// so it is dropped at read time: three of the four lines survive.
+	if len(evs) != 3 {
+		t.Fatalf("got %d events, want 3", len(evs))
 	}
 
 	// Referral: ref and loc parsed alongside device.
@@ -87,18 +89,18 @@ func TestReadMelodiesEventsPortfolio(t *testing.T) {
 		t.Errorf("event 1 = %+v, want portfolio_visit /hire-me/education.html Berlin_DE iPhone/Safari", evs[1])
 	}
 
-	// No device or browser, ref must stay nil.
-	if evs[2].Type != "portfolio_visit" || evs[2].Path == nil || *evs[2].Path != "/hire-me/" ||
-		evs[2].Location == nil || *evs[2].Location != "local" ||
-		evs[2].Device != nil || evs[2].Browser != nil || evs[2].Ref != nil {
-		t.Errorf("event 2 = %+v, want portfolio_visit /hire-me/ loc=local and nil device, browser, ref", evs[2])
+	// The private network row from the fixture must not appear at all.
+	for _, ev := range evs {
+		if ev.Location != nil && *ev.Location == "local" {
+			t.Errorf("a loc=local row reached the feed: %+v", ev)
+		}
 	}
 
 	// Country only location, path must stay nil.
-	if evs[3].Type != "portfolio_referral" || evs[3].Ref == nil || *evs[3].Ref != "google" ||
-		evs[3].Location == nil || *evs[3].Location != "DE" ||
-		evs[3].Path != nil || evs[3].Device != nil || evs[3].Browser != nil {
-		t.Errorf("event 3 = %+v, want portfolio_referral google loc=DE with nil path, device, browser", evs[3])
+	if evs[2].Type != "portfolio_referral" || evs[2].Ref == nil || *evs[2].Ref != "google" ||
+		evs[2].Location == nil || *evs[2].Location != "DE" ||
+		evs[2].Path != nil || evs[2].Device != nil || evs[2].Browser != nil {
+		t.Errorf("event 2 = %+v, want portfolio_referral google loc=DE with nil path, device, browser", evs[2])
 	}
 }
 
@@ -152,10 +154,16 @@ func TestReadMelodiesEventsIPAndHiddenLocations(t *testing.T) {
 func TestReadMelodiesEventsWeeklyLoops(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "activity_log.txt")
+	// The opt in line is not a feed type any more: listmonk writes its own
+	// optin row for a signup. Regensburg is Simon's own egress and "local" is
+	// his own network, both dropped at read time. The sparse line, the plain
+	// city and Hamburg all survive.
 	lines := `[2026-10-05 09:10:00] user=guest action=email_list_subscribe result=ok device=Pixel browser=Chrome ip=198.51.100.7 loc=Berlin_DE
 [2026-10-05 09:09:00] user=guest action=weekly_loops_page device=iPhone browser=Safari ip=203.0.113.9 loc=Berlin_DE
 [2026-10-05 09:08:00] user=guest action=weekly_loops_page ip=203.0.113.9
 [2026-10-05 09:07:00] user=guest action=melodies_page device=iPhone browser=Safari ip=203.0.113.9 loc=Regensburg_DE
+[2026-10-05 09:06:00] user=guest action=weekly_loops_page device=iPhone browser=Safari ip=192.168.1.20 loc=local
+[2026-10-05 09:05:00] user=guest action=weekly_loops_page device=Mac browser=Chrome ip=203.0.113.10 loc=Hamburg_DE
 `
 	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
 		t.Fatal(err)
@@ -164,33 +172,39 @@ func TestReadMelodiesEventsWeeklyLoops(t *testing.T) {
 
 	evs := readMelodiesEvents(10)
 
-	// The Regensburg row is dropped, the three weekly loops rows survive.
+	// Three of the six lines survive: Regensburg and local are hidden and the
+	// signup line is not a feed type.
 	if len(evs) != 3 {
 		t.Fatalf("got %d events, want 3: %+v", len(evs), evs)
 	}
 
-	// Opt in: result= is ignored, location and device parsed.
-	if evs[0].Type != "email_list_subscribe" ||
+	// Page visit, full meta parsed the way melodies rows do it.
+	if evs[0].Type != "weekly_loops_page" ||
 		evs[0].Location == nil || *evs[0].Location != "Berlin_DE" ||
-		evs[0].Device == nil || *evs[0].Device != "Pixel" ||
-		evs[0].Browser == nil || *evs[0].Browser != "Chrome" ||
-		evs[0].IP == nil || *evs[0].IP != "198.51.100.7" {
-		t.Errorf("event 0 = %+v, want email_list_subscribe Berlin_DE Pixel/Chrome ip 198.51.100.7", evs[0])
+		evs[0].Device == nil || *evs[0].Device != "iPhone" ||
+		evs[0].Browser == nil || *evs[0].Browser != "Safari" ||
+		evs[0].IP == nil || *evs[0].IP != "203.0.113.9" {
+		t.Errorf("event 0 = %+v, want weekly_loops_page Berlin_DE iPhone/Safari ip 203.0.113.9", evs[0])
 	}
 
-	// Page visit: full meta parsed the way melodies rows do it.
-	if evs[1].Type != "weekly_loops_page" ||
-		evs[1].Location == nil || *evs[1].Location != "Berlin_DE" ||
-		evs[1].Device == nil || *evs[1].Device != "iPhone" ||
-		evs[1].Browser == nil || *evs[1].Browser != "Safari" ||
+	// Sparse line: no device, browser or location, ip still parsed. A blank
+	// location must never be treated as hidden.
+	if evs[1].Type != "weekly_loops_page" || evs[1].Device != nil ||
+		evs[1].Browser != nil || evs[1].Location != nil ||
 		evs[1].IP == nil || *evs[1].IP != "203.0.113.9" {
-		t.Errorf("event 1 = %+v, want weekly_loops_page Berlin_DE iPhone/Safari ip 203.0.113.9", evs[1])
+		t.Errorf("event 1 = %+v, want weekly_loops_page with nil device, browser, location and ip 203.0.113.9", evs[1])
 	}
 
-	// Sparse line: no device, browser or location, ip still parsed.
-	if evs[2].Type != "weekly_loops_page" || evs[2].Device != nil ||
-		evs[2].Browser != nil || evs[2].Location != nil ||
-		evs[2].IP == nil || *evs[2].IP != "203.0.113.9" {
-		t.Errorf("event 2 = %+v, want weekly_loops_page with nil device, browser, location and ip 203.0.113.9", evs[2])
+	// A city that is not hidden still comes through.
+	if evs[2].Type != "weekly_loops_page" ||
+		evs[2].Location == nil || *evs[2].Location != "Hamburg_DE" {
+		t.Errorf("event 2 = %+v, want weekly_loops_page Hamburg_DE", evs[2])
+	}
+
+	// The log reader must never emit a signup row again.
+	for _, ev := range evs {
+		if ev.Type == "email_list_subscribe" {
+			t.Errorf("the log reader still emits signup rows: %+v", ev)
+		}
 	}
 }
