@@ -76,11 +76,13 @@ var melodiesLogLine = regexp.MustCompile(`^\[(.*?)\]\s+user=(\S*)\s+action=(\S*)
 
 // melodiesActionTypes maps PI-Website log actions to dashboard event types.
 var melodiesActionTypes = map[string]string{
-	"melodies_page":      "site_visit",
-	"song_play":          "track_played",
-	"song_download":      "track_downloaded",
-	"portfolio_visit":    "portfolio_visit",
-	"portfolio_referral": "portfolio_referral",
+	"melodies_page":        "site_visit",
+	"song_play":            "track_played",
+	"song_download":        "track_downloaded",
+	"portfolio_visit":      "portfolio_visit",
+	"portfolio_referral":   "portfolio_referral",
+	"weekly_loops_page":    "weekly_loops_page",
+	"email_list_subscribe": "email_list_subscribe",
 }
 
 // readMelodiesEvents tails the PI-Website activity log (newest lines first)

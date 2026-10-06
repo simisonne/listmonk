@@ -49,6 +49,7 @@ export const EVENT_COLORS = {
   negative: { base: '#EF4444', deep: '#B91C1C' },
   portfolio: { base: '#1f5eff', deep: '#1a4bd6' },
   referral: { base: '#7c3aed', deep: '#6425c7' },
+  weekly: { base: '#0D9488', deep: '#115E59' },
 };
 
 // #rrggbb (or #rgb) hex plus an alpha as an rgba() string, for inline styles.
@@ -333,7 +334,9 @@ export default class Utils {
   // Highlight behind non-campaign event text in the dashboard feed and behind
   // 'melodies' covers Melodies site activity and list optins
   // (lime, used by no campaign type and far from every palette hue), 'negative' covers
-  // unsubscribes and bounces (red). Same low alpha as campaign names.
+  // unsubscribes and bounces (red), 'weekly' covers the weekly loops page
+  // visits and list opt-ins from the site log (teal). Same low alpha as
+  // campaign names.
   eventHighlightStyle = (key) => {
     const c = EVENT_COLORS[key] || EVENT_COLORS.melodies;
     return {

@@ -148,3 +148,49 @@ func TestReadMelodiesEventsIPAndHiddenLocations(t *testing.T) {
 		t.Errorf("event 2 = %+v, want track_played Munich_DE with ip 198.51.100.7", evs[2])
 	}
 }
+
+func TestReadMelodiesEventsWeeklyLoops(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "activity_log.txt")
+	lines := `[2026-10-05 09:10:00] user=guest action=email_list_subscribe result=ok device=Pixel browser=Chrome ip=198.51.100.7 loc=Berlin_DE
+[2026-10-05 09:09:00] user=guest action=weekly_loops_page device=iPhone browser=Safari ip=203.0.113.9 loc=Berlin_DE
+[2026-10-05 09:08:00] user=guest action=weekly_loops_page ip=203.0.113.9
+[2026-10-05 09:07:00] user=guest action=melodies_page device=iPhone browser=Safari ip=203.0.113.9 loc=Regensburg_DE
+`
+	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MELODIES_ACTIVITY_LOG", path)
+
+	evs := readMelodiesEvents(10)
+
+	// The Regensburg row is dropped, the three weekly loops rows survive.
+	if len(evs) != 3 {
+		t.Fatalf("got %d events, want 3: %+v", len(evs), evs)
+	}
+
+	// Opt in: result= is ignored, location and device parsed.
+	if evs[0].Type != "email_list_subscribe" ||
+		evs[0].Location == nil || *evs[0].Location != "Berlin_DE" ||
+		evs[0].Device == nil || *evs[0].Device != "Pixel" ||
+		evs[0].Browser == nil || *evs[0].Browser != "Chrome" ||
+		evs[0].IP == nil || *evs[0].IP != "198.51.100.7" {
+		t.Errorf("event 0 = %+v, want email_list_subscribe Berlin_DE Pixel/Chrome ip 198.51.100.7", evs[0])
+	}
+
+	// Page visit: full meta parsed the way melodies rows do it.
+	if evs[1].Type != "weekly_loops_page" ||
+		evs[1].Location == nil || *evs[1].Location != "Berlin_DE" ||
+		evs[1].Device == nil || *evs[1].Device != "iPhone" ||
+		evs[1].Browser == nil || *evs[1].Browser != "Safari" ||
+		evs[1].IP == nil || *evs[1].IP != "203.0.113.9" {
+		t.Errorf("event 1 = %+v, want weekly_loops_page Berlin_DE iPhone/Safari ip 203.0.113.9", evs[1])
+	}
+
+	// Sparse line: no device, browser or location, ip still parsed.
+	if evs[2].Type != "weekly_loops_page" || evs[2].Device != nil ||
+		evs[2].Browser != nil || evs[2].Location != nil ||
+		evs[2].IP == nil || *evs[2].IP != "203.0.113.9" {
+		t.Errorf("event 2 = %+v, want weekly_loops_page with nil device, browser, location and ip 203.0.113.9", evs[2])
+	}
+}

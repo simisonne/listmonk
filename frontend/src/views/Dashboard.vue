@@ -209,6 +209,10 @@
                       :style="eventHl('portfolio')">visited the portfolio site{{ pageSuffix(e) }}</span>{{ siteDetail(e) }}</template>
                     <template v-else-if="e.type === 'portfolio_referral'"><span class="campaign-name-hl"
                       :style="eventHl('referral')">visited the portfolio site via your @{{ refName(e) }} link</span>{{ siteDetail(e) }}</template>
+                    <template v-else-if="e.type === 'weekly_loops_page'"><span class="campaign-name-hl"
+                      :style="eventHl('weekly')">visited the weekly loops page</span>{{ melodiesDetail(e) }}</template>
+                    <template v-else-if="e.type === 'email_list_subscribe'"><span class="campaign-name-hl"
+                      :style="eventHl('weekly')">joined the weekly loops list</span>{{ melodiesDetail(e) }}</template>
                     <template v-else>{{ e.type }}</template>
                   </span>
                 </li>
@@ -327,6 +331,8 @@ export default Vue.extend({
         track_downloaded: 'download',
         portfolio_visit: 'web',
         portfolio_referral: 'link-variant',
+        weekly_loops_page: 'calendar-clock',
+        email_list_subscribe: 'account-check-outline',
       }[type] || 'bell-outline';
     },
 
@@ -342,7 +348,8 @@ export default Vue.extend({
 
     // Melodies site events stay as plain text: nothing in them is clickable.
     isMelodiesEvent(type) {
-      return ['site_visit', 'track_played', 'track_downloaded'].indexOf(type) !== -1;
+      return ['site_visit', 'track_played', 'track_downloaded', 'weekly_loops_page',
+        'email_list_subscribe'].indexOf(type) !== -1;
     },
 
     // " (iPhone, Safari) from Berlin, DE" suffix for melodies events,
