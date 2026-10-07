@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/knadh/listmonk/internal/auth"
+	"github.com/knadh/listmonk/internal/core"
 	"github.com/knadh/listmonk/internal/notifs"
 	"github.com/knadh/listmonk/models"
 	"github.com/labstack/echo/v4"
@@ -744,9 +745,14 @@ func (a *App) validateCampaignFields(c campReq) (campReq, error) {
 	}
 
 	// The campaign colour is an optional #rrggbb hex. An empty value means
-	// auto, where the UI picks a palette colour from the campaign ID.
+	// auto: the colour of the theme derived from the campaign name, so every
+	// send from the same script and every send in the same category keeps one
+	// colour. Names with no known theme stay empty and render neutral grey.
+	// The UI (frontend/src/utils.js) derives the same colour for legacy rows.
 	c.Color = strings.TrimSpace(c.Color)
-	if c.Color != "" {
+	if c.Color == "" {
+		c.Color = core.CampaignThemeColor(c.Name)
+	} else {
 		if !reHexColor.MatchString(c.Color) {
 			return c, errors.New(a.i18n.T("campaigns.fieldInvalidColor"))
 		}

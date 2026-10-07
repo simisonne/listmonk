@@ -86,11 +86,12 @@
                       <span class="campaign-color-label">{{ $t('campaigns.colorAuto') }}</span>
                     </button>
                     <button v-for="p in palette" :key="p.key" type="button" class="campaign-color-swatch"
-                      :class="{ 'is-active': form.color === p.base }" :style="$utils.campaignSwatchStyle(p)"
-                      :disabled="!canEdit" :aria-pressed="form.color === p.base" :title="p.base"
-                      :data-cy="`color-${p.key}`" @click="form.color = p.base">
+                      :class="{ 'is-active': (form.color || '').toLowerCase() === p.base }"
+                      :style="$utils.campaignSwatchStyle(p)"
+                      :disabled="!canEdit" :aria-pressed="(form.color || '').toLowerCase() === p.base"
+                      :title="p.base" :data-cy="`color-${p.key}`" @click="form.color = p.base">
                       <span class="campaign-color-dot" :style="{ background: p.base }" />
-                      <span class="campaign-color-label">{{ p.base }}</span>
+                      <span class="campaign-color-label">{{ $t(p.label) }}</span>
                     </button>
                   </div>
                 </b-field>

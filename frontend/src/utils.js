@@ -14,35 +14,72 @@ dayjs.extend(dayDuration);
 const reEmail = /(.+?)@(.+?)/ig;
 const prefKey = 'listmonk_pref';
 
-// Campaign palette. The order is load bearing: the SQL fallback in
-// internal/migrations/v6.7.0.go picks the entry at (id % N) from this exact
-// list, so both sides have to stay identical entry for entry.
+// Campaign palette: one colour per THEME, not per campaign. The order is load
+// bearing: the backfills in internal/migrations/*.go pick these exact hexes and
+// cmd/campaign_theme.go derives the same colour from the campaign name.
+//
+//   onboard    every onboarding send (tt onboard, ig onboard)
+//   one-off    1:1 sends (tt one-off)
+//   loopkit    loopkit drops (tt loopkit drop, bs loopkit drop)
+//   email-list email list and weekly loops sends
+//
+// A campaign that matches no theme gets the neutral grey below, never a random
+// palette colour, so a coloured chip always means a known theme.
+// Hexes are lowercase: the API lowercases stored colours, and the picker
+// compares them against these bases directly.
 export const CAMPAIGN_PALETTE = [
   {
-    key: 'tt-onboard', base: '#14B8A6', tint: '#CCFBF1', deep: '#0F766E',
+    key: 'onboard', base: '#14b8a6', tint: '#ccfbf1', deep: '#0f766e', label: 'campaigns.colorOnboard',
   },
   {
-    key: 'tt-one-off', base: '#6366F1', tint: '#E0E7FF', deep: '#4338CA',
+    key: 'one-off', base: '#6366f1', tint: '#e0e7ff', deep: '#4338ca', label: 'campaigns.colorOneOff',
   },
   {
-    key: 'ig-onboard', base: '#C026D3', tint: '#FAE8FF', deep: '#A21CAF',
+    key: 'loopkit', base: '#f59e0b', tint: '#fef3c7', deep: '#b45309', label: 'campaigns.colorLoopkit',
   },
   {
-    key: 'email-list', base: '#3E6FBF', tint: '#DBEAFE', deep: '#1E4FA8',
-  },
-  {
-    key: 'bs-loopkit', base: '#F59E0B', tint: '#FEF3C7', deep: '#B45309',
-  },
-  {
-    key: 'emerald', base: '#10B981', tint: '#D1FAE5', deep: '#047857',
-  },
-  {
-    key: 'violet', base: '#8B5CF6', tint: '#EDE9FE', deep: '#6D28D9',
-  },
-  {
-    key: 'cyan', base: '#0891B2', tint: '#CFFAFE', deep: '#0E7490',
+    key: 'email-list', base: '#3e6fbf', tint: '#dbeafe', deep: '#1e4fa8', label: 'campaigns.colorEmailList',
   },
 ];
+
+// Shown for campaigns whose name matches no theme (hand made or ad hoc sends)
+// and for the picker's "Auto" swatch.
+export const CAMPAIGN_NEUTRAL = {
+  key: 'neutral', base: '#64748b', tint: '#f1f5f9', deep: '#475569', label: 'campaigns.colorNeutral',
+};
+
+// Theme prefixes, matched against a lowercased name stripped of a leading
+// "copy of ", most specific first. The bare theme words catch scripts and
+// hand-made campaigns named without a brand prefix.
+// Keep in sync with cmd/campaign_theme.go and internal/migrations/v6.8.0.go.
+export const CAMPAIGN_THEMES = [
+  { key: 'onboard', prefixes: ['tt onboard', 'ig onboard', 'onboard'] },
+  { key: 'one-off', prefixes: ['tt one-off', 'one-off', 'one off'] },
+  { key: 'loopkit', prefixes: ['tt loopkit', 'bs loopkit', 'loopkit'] },
+  {
+    key: 'email-list',
+    prefixes: ['slayr email list', 'email list', '8digit weekly loops', 'weekly loops'],
+  },
+];
+
+// Theme key for a campaign name, '' when nothing matches.
+export const campaignThemeKey = (name) => {
+  const n = String(name || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^copy of /, '');
+  if (!n) {
+    return '';
+  }
+  const hit = CAMPAIGN_THEMES.find((t) => t.prefixes.some((p) => n.startsWith(p)));
+  return hit ? hit.key : '';
+};
+
+export const campaignThemeColor = (name) => {
+  const entry = CAMPAIGN_PALETTE.find((p) => p.key === campaignThemeKey(name));
+  return entry ? entry.base : '';
+};
 
 export const EVENT_COLORS = {
   melodies: { base: '#65A30D', deep: '#3F6212' },
@@ -297,13 +334,15 @@ export default class Utils {
     return obj;
   };
 
-  // Palette entry for a campaign. An explicit campaigns.color that is in the
-  // palette wins, any other stored colour is used as-is (washed out for the
-  // highlight background), and an empty colour falls back to the id % N entry that
-  // mirrors the SQL backfill in internal/migrations/v6.7.0.go.
+  // Palette entry for a campaign, resolved in this order:
+  //   1. an explicit campaigns.color in the palette (chosen in the picker),
+  //   2. any other stored colour, used as-is (custom),
+  //   3. the colour of the theme derived from the campaign NAME (the backend
+  //      stores it on create, this covers legacy rows that were never backfilled),
+  //   4. neutral grey when the name matches no theme.
+  // There is deliberately no id based fallback: a colour must always mean a theme.
   campaignPalette = (campaign) => {
     const color = String((campaign && campaign.color) || '').trim().toLowerCase();
-    const id = parseInt((campaign && campaign.id), 10);
 
     if (color) {
       const hit = CAMPAIGN_PALETTE.find((p) => p.base === color);
@@ -315,9 +354,9 @@ export default class Utils {
       };
     }
 
-    const n = CAMPAIGN_PALETTE.length;
-    const idx = Number.isNaN(id) ? 0 : ((id % n) + n) % n;
-    return { ...CAMPAIGN_PALETTE[idx], known: true };
+    const theme = campaignThemeKey(campaign && campaign.name);
+    const hit = CAMPAIGN_PALETTE.find((p) => p.key === theme);
+    return { ...(hit || CAMPAIGN_NEUTRAL), known: true };
   };
 
   // Inline style for the highlight behind every campaign name: the saturated
