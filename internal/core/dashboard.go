@@ -80,12 +80,16 @@ var melodiesLogLine = regexp.MustCompile(`^\[(.*?)\]\s+user=(\S*)\s+action=(\S*)
 // so mapping the log line too showed every signup twice.
 var melodiesActionTypes = map[string]string{
 	"melodies_page":      "site_visit",
+	"beats_page":         "beats_visit",
 	"song_play":          "track_played",
 	"song_download":      "track_downloaded",
 	"portfolio_visit":    "portfolio_visit",
 	"portfolio_referral": "portfolio_referral",
 	"weekly_loops_page":  "weekly_loops_page",
 }
+// beat_page (the login gated beats page at /beat) is deliberately NOT mapped,
+// the same way loops_page is not: the feed shows what visitors did, not what
+// Simon did behind the login.
 
 // readMelodiesEvents tails the PI-Website activity log (newest lines first)
 // and returns up to lim melodies site events. A missing or unreadable log
@@ -150,6 +154,9 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 		if ip := parseMelodiesMetaToken(m[4], "ip"); ip != "" {
 			ev.IP = &ip
 		}
+		if s := parseMelodiesMetaToken(m[4], "site"); s != "" {
+			ev.Site = &s
+		}
 		out = append(out, ev)
 	}
 
@@ -200,7 +207,7 @@ func parseMelodiesTrack(meta string) string {
 		return ""
 	}
 	rest := meta[i+len("song="):]
-	for _, stop := range []string{" ip=", " device=", " browser="} {
+	for _, stop := range []string{" ip=", " device=", " browser=", " site="} {
 		if j := strings.Index(rest, stop); j != -1 {
 			rest = rest[:j]
 		}
@@ -217,6 +224,7 @@ var melodiesMetaTokenRes = map[string]*regexp.Regexp{
 	"ref":     regexp.MustCompile(`(?:^|\s)ref=(\S+)`),
 	"path":    regexp.MustCompile(`(?:^|\s)path=(\S+)`),
 	"ip":      regexp.MustCompile(`(?:^|\s)ip=(\S+)`),
+	"site":    regexp.MustCompile(`(?:^|\s)site=(\S+)`),
 }
 
 // parseMelodiesMetaToken extracts a single token value such as device=iPhone

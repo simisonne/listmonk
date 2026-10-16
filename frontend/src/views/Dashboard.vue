@@ -201,10 +201,11 @@
                     <template v-else-if="e.type === 'optin'">joined <span class="campaign-name-hl" :style="eventHl('melodies')">{{ e.listName || 'a public list' }}</span></template>
                     <template v-else-if="e.type === 'unsubscribe'">left <span class="campaign-name-hl" :style="eventHl('negative')">{{ e.listName || 'a list' }}</span></template>
                     <template v-else-if="e.type === 'site_visit'"><span class="campaign-name-hl" :style="eventHl('melodies')">visited the Melodies site</span>{{ melodiesDetail(e) }}</template>
+                    <template v-else-if="e.type === 'beats_visit'"><span class="campaign-name-hl" :style="eventHl('beats')">visited the Beats site</span>{{ melodiesDetail(e) }}</template>
                     <template v-else-if="e.type === 'track_played'"><span class="campaign-name-hl"
-                      :style="eventHl('melodies')">played{{ e.track ? `: ${e.track}` : ' a track' }} on the Melodies site</span>{{ melodiesDetail(e) }}</template>
+                      :style="eventHl(eventSiteKey(e))">played{{ e.track ? `: ${e.track}` : ' a track' }} on {{ siteName(e) }}</span>{{ melodiesDetail(e) }}</template>
                     <template v-else-if="e.type === 'track_downloaded'"><span class="campaign-name-hl"
-                      :style="eventHl('melodies')">downloaded{{ e.track ? `: ${e.track}` : ' a track' }} from the Melodies site</span>{{ melodiesDetail(e) }}</template>
+                      :style="eventHl(eventSiteKey(e))">downloaded{{ e.track ? `: ${e.track}` : ' a track' }} from {{ siteName(e) }}</span>{{ melodiesDetail(e) }}</template>
                     <template v-else-if="e.type === 'portfolio_visit'"><span class="campaign-name-hl"
                       :style="eventHl('portfolio')">visited the portfolio site{{ pageSuffix(e) }}</span>{{ siteDetail(e) }}</template>
                     <template v-else-if="e.type === 'portfolio_referral'"><span class="campaign-name-hl"
@@ -325,6 +326,7 @@ export default Vue.extend({
         optin: 'account-plus-outline',
         unsubscribe: 'account-minus-outline',
         site_visit: 'web',
+        beats_visit: 'web',
         track_played: 'music',
         track_downloaded: 'download',
         portfolio_visit: 'web',
@@ -345,7 +347,7 @@ export default Vue.extend({
 
     // Melodies site events stay as plain text: nothing in them is clickable.
     isMelodiesEvent(type) {
-      return ['site_visit', 'track_played', 'track_downloaded',
+      return ['site_visit', 'beats_visit', 'track_played', 'track_downloaded',
         'weekly_loops_page'].indexOf(type) !== -1;
     },
 
@@ -360,6 +362,23 @@ export default Vue.extend({
         out += ` from ${loc}`;
       }
       return out;
+    },
+
+    // Which of the site pages a track event came from, as a word for the
+    // sentence. Log lines written before the site= tag existed, and the
+    // older guest pages, carry nothing and keep the Melodies wording they
+    // have always been rendered with.
+    siteName(e) {
+      const key = String(e.site || '').toLowerCase();
+      if (key === 'beats') return 'the Beats site';
+      if (key === 'loops') return 'the Loops site';
+      return 'the Melodies site';
+    },
+
+    // The matching highlight colour key for eventHl().
+    eventSiteKey(e) {
+      const key = String(e.site || '').toLowerCase();
+      return ['beats', 'loops'].indexOf(key) !== -1 ? key : 'melodies';
     },
 
     // ": education" page suffix for portfolio visits, empty for the home

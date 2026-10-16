@@ -4,8 +4,8 @@ import "time"
 
 // DashboardEvent is one row of the recent events feed shown on the
 // dashboard: campaign sends, opens, clicks, public list opt-ins and
-// melodies site activity. Only the fields relevant to the event type
-// are set.
+// site activity (melodies, beats, the portfolio, the weekly loops page).
+// Only the fields relevant to the event type are set.
 type DashboardEvent struct {
 	Type           string    `db:"type" json:"type"`
 	CreatedAt      time.Time `db:"created_at" json:"created_at"`
@@ -25,4 +25,8 @@ type DashboardEvent struct {
 	Ref            *string   `db:"ref" json:"ref"`
 	Path           *string   `db:"path" json:"path"`
 	IP             *string   `db:"ip" json:"ip"`
+	// Site is the site= tag a play / download line carries (beats, melodies,
+	// loops). No SQL branch returns this column, which sqlx tolerates: only a
+	// returned column with no struct field is an error.
+	Site           *string   `db:"site" json:"site"`
 }

@@ -208,3 +208,65 @@ func TestReadMelodiesEventsWeeklyLoops(t *testing.T) {
 		}
 	}
 }
+
+func TestReadMelodiesEventsBeatsAndSiteTag(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "activity_log.txt")
+	lines := `[2026-10-16 12:02:00] user=guest action=song_download song=foo bar.mp3 ip=203.0.113.7 site=melodies
+[2026-10-16 12:01:00] user=guest action=song_play song=DJ DJ.mp3 device=Desktop browser=Chrome ip=203.0.113.7 site=beats
+[2026-10-16 12:00:30] user=guest action=beat_page device=Desktop browser=Chrome ip=203.0.113.7
+[2026-10-16 12:00:00] user=guest action=beats_page device=Desktop browser=Chrome ip=203.0.113.7 loc=Berlin_DE
+`
+	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MELODIES_ACTIVITY_LOG", path)
+
+	evs := readMelodiesEvents(10)
+	// beat_page is the login gated page and must not reach the feed, so three
+	// of the four lines survive.
+	if len(evs) != 3 {
+		t.Fatalf("got %d events, want 3: %+v", len(evs), evs)
+	}
+
+	// song= with the site tag last: the track must stop before it.
+	if evs[0].Type != "track_downloaded" || evs[0].Track == nil || *evs[0].Track != "foo bar.mp3" ||
+		evs[0].Site == nil || *evs[0].Site != "melodies" {
+		t.Errorf("event 0 = %+v, want track_downloaded foo bar.mp3 site=melodies", evs[0])
+	}
+
+	// A beats play: its own site tag plus the usual fields.
+	if evs[1].Type != "track_played" || evs[1].Track == nil || *evs[1].Track != "DJ DJ.mp3" ||
+		evs[1].Site == nil || *evs[1].Site != "beats" || evs[1].Device == nil || *evs[1].Device != "Desktop" {
+		t.Errorf("event 1 = %+v, want track_played DJ DJ.mp3 site=beats Desktop", evs[1])
+	}
+
+	// The public beats page view is its own type now.
+	if evs[2].Type != "beats_visit" || evs[2].Location == nil || *evs[2].Location != "Berlin_DE" ||
+		evs[2].Site != nil {
+		t.Errorf("event 2 = %+v, want beats_visit Berlin_DE and no site tag", evs[2])
+	}
+}
+
+func TestReadMelodiesEventsOldLinesHaveNoSite(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "activity_log.txt")
+	// The shape every line written before the site tag existed.
+	lines := `[2026-09-01 09:00:00] user=guest action=song_play song=old.mp3 device=iPhone browser=Safari ip=1.2.3.4
+`
+	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MELODIES_ACTIVITY_LOG", path)
+
+	evs := readMelodiesEvents(10)
+	if len(evs) != 1 {
+		t.Fatalf("got %d events, want 1", len(evs))
+	}
+	if evs[0].Track == nil || *evs[0].Track != "old.mp3" {
+		t.Errorf("track = %v, want old.mp3", evs[0].Track)
+	}
+	if evs[0].Site != nil {
+		t.Errorf("site = %v, want nil for a line written before the tag existed", *evs[0].Site)
+	}
+}
