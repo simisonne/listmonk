@@ -270,3 +270,31 @@ func TestReadMelodiesEventsOldLinesHaveNoSite(t *testing.T) {
 		t.Errorf("site = %v, want nil for a line written before the tag existed", *evs[0].Site)
 	}
 }
+
+func TestReadMelodiesEventsHidesSiteOwner(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "activity_log.txt")
+	lines := `[2026-10-16 12:02:00] user=guest action=song_play song=visitor beat.mp3 device=Desktop browser=Chrome ip=203.0.113.8 site=beats
+[2026-10-16 12:01:00] user=simon action=song_play song=simon played this.mp3 device=Desktop browser=Chrome ip=203.0.113.8 site=beats
+[2026-10-16 12:00:30] user=Simon action=melodies_page device=Desktop browser=Chrome ip=203.0.113.8 loc=Berlin_DE
+[2026-10-16 12:00:00] user=simon action=beats_page device=Desktop browser=Chrome ip=203.0.113.8 loc=Berlin_DE
+[2026-10-16 11:59:00] user=g33cmin action=beats_page device=iPhone browser=Safari ip=203.0.113.9 loc=Berlin_DE
+`
+	if err := os.WriteFile(path, []byte(lines), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MELODIES_ACTIVITY_LOG", path)
+
+	evs := readMelodiesEvents(10)
+	// The three simon lines are dropped, the guest and the other account stay.
+	if len(evs) != 2 {
+		t.Fatalf("got %d events, want 2: %+v", len(evs), evs)
+	}
+	if evs[0].Type != "track_played" || evs[0].Track == nil || *evs[0].Track != "visitor beat.mp3" {
+		t.Errorf("event 0 = %+v, want the guest track_played", evs[0])
+	}
+	// Another account is a real visitor and must survive.
+	if evs[1].Type != "beats_visit" || evs[1].Device == nil || *evs[1].Device != "iPhone" {
+		t.Errorf("event 1 = %+v, want the g33cmin beats_visit", evs[1])
+	}
+}

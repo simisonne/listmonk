@@ -117,6 +117,12 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 		if m == nil {
 			continue
 		}
+		// Simon's own sessions are not visitors, and the feed is a record of what
+		// visitors did. Same reasoning as the hidden locations below: read time
+		// only, the activity log keeps every line.
+		if isHiddenSiteUser(m[2]) {
+			continue
+		}
 		typ, ok := melodiesActionTypes[m[3]]
 		if !ok {
 			continue
@@ -161,6 +167,29 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 	}
 
 	return out
+}
+
+// hiddenSiteUsers lists the activity log's user= values whose lines never reach
+// the feed. "simon" is the site owner: nothing he does while logged in is
+// visitor activity, and on the pages that need no login his own visits are
+// already thinned out by the location filter when the IP reads as his home.
+// Matched case insensitively, because the log's spelling is whatever the login
+// form sent.
+var hiddenSiteUsers = []string{"simon"}
+
+// isHiddenSiteUser reports whether a log line's user= token belongs to a hidden
+// account. Lines written before the field existed, or with an empty value, are
+// never hidden.
+func isHiddenSiteUser(user string) bool {
+	if user == "" {
+		return false
+	}
+	for _, u := range hiddenSiteUsers {
+		if strings.EqualFold(user, u) {
+			return true
+		}
+	}
+	return false
 }
 
 // hiddenLocationCities lists the cities whose visits are kept out of the
