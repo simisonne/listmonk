@@ -105,6 +105,7 @@ func initHTTPHandlers(e *echo.Echo, a *App) {
 		g.GET("/api/dashboard/charts", a.GetDashboardCharts)
 		g.GET("/api/dashboard/counts", a.GetDashboardCounts)
 		g.GET("/api/dashboard/events", a.GetDashboardEvents)
+		g.GET("/api/dashboard/partial-campaigns", a.GetPartialCampaigns)
 
 		g.GET("/api/settings", pm(a.GetSettings, "settings:get"))
 		g.PUT("/api/settings", pm(a.UpdateSettings, "settings:manage"))
@@ -174,6 +175,7 @@ func initHTTPHandlers(e *echo.Echo, a *App) {
 		g.PUT("/api/campaigns/:id/name", pm(hasID(a.RenameCampaign), "campaigns:manage_all", "campaigns:manage"))
 		g.PUT("/api/campaigns/:id/status", pm(hasID(a.UpdateCampaignStatus), "campaigns:send"))
 		g.PUT("/api/campaigns/:id/archive", pm(hasID(a.UpdateCampaignArchive), "campaigns:manage_all", "campaigns:manage"))
+		g.POST("/api/campaigns/:id/dismiss-partial", pm(hasID(a.DismissPartialCampaign), "campaigns:manage_all", "campaigns:manage"))
 		g.DELETE("/api/campaigns", pm(a.DeleteCampaigns, "campaigns:manage", "campaigns:manage_all"))
 		g.DELETE("/api/campaigns/:id", pm(hasID(a.DeleteCampaign), "campaigns:manage_all", "campaigns:manage"))
 

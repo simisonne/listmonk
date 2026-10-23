@@ -268,6 +268,18 @@ func (c *Core) RenameCampaign(id int, name string) (models.Campaign, error) {
 	return c.GetCampaign(id, "", "")
 }
 
+// DismissPartialCampaign marks a partially sent campaign as handled so the
+// dashboard alert stops listing it. The campaign itself is untouched.
+func (c *Core) DismissPartialCampaign(id int) error {
+	if _, err := c.q.DismissPartialCampaign.Exec(id); err != nil {
+		c.log.Printf("error dismissing partial campaign: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError,
+			c.i18n.Ts("globals.messages.errorUpdating", "name", "{globals.terms.campaign}", "error", pqErrMsg(err)))
+	}
+
+	return nil
+}
+
 // UpdateCampaignStatus updates a campaign's status, eg: draft to running.
 func (c *Core) UpdateCampaignStatus(id int, status string) (models.Campaign, error) {
 	cm, err := c.GetCampaign(id, "", "")

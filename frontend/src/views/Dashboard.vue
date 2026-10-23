@@ -8,6 +8,39 @@
       </div>
     </header>
 
+    <!-- Loud, unmissable alert for campaigns that ended without reaching
+         every recipient. listmonk marks such a campaign finished even when
+         most messages failed, so without this the loss is invisible. -->
+    <article v-if="partialCampaigns.length" class="partial-alert" data-cy="partial-campaigns">
+      <div class="partial-alert-head">
+        <b-icon icon="alert-octagon" />
+        <span>
+          {{ partialCampaigns.length }}
+          campaign{{ partialCampaigns.length > 1 ? 's' : '' }}
+          did not reach every recipient
+        </span>
+      </div>
+      <ul class="partial-alert-list">
+        <li v-for="c in partialCampaigns" :key="c.id">
+          <router-link :to="`/campaigns/${c.id}`" class="partial-name">
+            {{ c.name }}
+          </router-link>
+          <span class="partial-count">
+            {{ $utils.niceNumber(c.sent) }} of {{ $utils.niceNumber(c.toSend) }} sent,
+            <strong>{{ $utils.niceNumber(c.missing) }} missing</strong>
+          </span>
+          <span class="partial-when">{{ partialWhen(c) }}</span>
+          <a href="#" class="partial-dismiss" @click.prevent="dismissPartial(c)">
+            handled, hide
+          </a>
+        </li>
+      </ul>
+      <p class="partial-help">
+        These sends stopped early and no address bounced. Find out why in the log,
+        send the missing recipients again, then hide the row.
+      </p>
+    </article>
+
     <section class="counts wrap">
       <div class="tile is-ancestor">
         <div class="tile is-vertical is-12">
@@ -260,6 +293,7 @@ export default Vue.extend({
       isEventsLoading: true,
       eventsExpanded: false,
       events: [],
+      partialCampaigns: [],
       campaignViews: null,
       campaignClicks: null,
       refreshTimer: null,
@@ -297,6 +331,23 @@ export default Vue.extend({
       this.$api.getDashboardEvents(80).then((data) => {
         this.events = data;
         this.isEventsLoading = false;
+      });
+
+      this.$api.getPartialCampaigns().then((data) => {
+        this.partialCampaigns = data || [];
+      });
+    },
+
+    // partialWhen renders when a partial campaign last moved.
+    partialWhen(c) {
+      return dayjs(c.updatedAt).fromNow();
+    },
+
+    // dismissPartial hides a partial campaign from the alert permanently.
+    dismissPartial(c) {
+      this.$api.dismissPartialCampaign(c.id).then(() => {
+        this.partialCampaigns = this.partialCampaigns.filter((x) => x.id !== c.id);
+        this.$utils.toast('Hidden. That campaign will not be alerted again.');
       });
     },
 
@@ -515,6 +566,74 @@ export default Vue.extend({
 </script>
 
 <style scoped>
+.partial-alert {
+  margin-bottom: 1.25rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: 6px;
+  border: 2px solid #7f1d1d;
+  border-left-width: 10px;
+  background: #b91c1c;
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(185, 28, 28, 0.35);
+}
+.partial-alert-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+.partial-alert-head .icon {
+  color: #fff;
+  font-size: 1.4rem;
+}
+.partial-alert-list {
+  margin: 0.6rem 0 0 0;
+  list-style: none;
+}
+.partial-alert-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+}
+.partial-alert .partial-name {
+  color: #fff;
+  font-weight: 700;
+  text-decoration: underline;
+}
+.partial-alert .partial-count strong {
+  color: #fff;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 0 0.35rem;
+  border-radius: 3px;
+}
+.partial-alert .partial-when {
+  opacity: 0.85;
+  font-size: 0.85rem;
+}
+.partial-alert .partial-dismiss {
+  margin-left: auto;
+  color: #fff;
+  opacity: 0.9;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.partial-alert .partial-dismiss:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+.partial-alert .partial-help {
+  margin: 0.6rem 0 0 0;
+  font-size: 0.82rem;
+  opacity: 0.92;
+}
 .events .event {
   display: flex;
   align-items: baseline;

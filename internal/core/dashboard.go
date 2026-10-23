@@ -39,6 +39,20 @@ func (c *Core) GetDashboardCounts() (types.JSONText, error) {
 	return out, nil
 }
 
+// GetPartialCampaigns returns campaigns that ended without reaching every
+// recipient, ie finished or paused with sent < to_send. These are silently
+// lost recipients and the dashboard shows them in a red alert until they
+// are dismissed.
+func (c *Core) GetPartialCampaigns() (types.JSONText, error) {
+	var out types.JSONText
+	if err := c.q.GetPartialCampaigns.Get(&out); err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError,
+			c.i18n.Ts("globals.messages.errorFetching", "name", "partial campaigns", "error", pqErrMsg(err)))
+	}
+
+	return out, nil
+}
+
 // GetDashboardEvents returns the newest dashboard events (campaign sends,
 // opens, clicks and public list opt-ins from the DB, merged with melodies
 // site activity from the PI-Website activity log), newest first, capped

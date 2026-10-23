@@ -14,6 +14,7 @@ type Queries struct {
 	GetDashboardCharts *sqlx.Stmt `query:"get-dashboard-charts"`
 	GetDashboardCounts *sqlx.Stmt `query:"get-dashboard-counts"`
 	GetDashboardEvents *sqlx.Stmt `query:"get-dashboard-events"`
+	GetPartialCampaigns *sqlx.Stmt `query:"get-partial-campaigns"`
 
 	InsertSubscriber                *sqlx.Stmt `query:"insert-subscriber"`
 	UpsertSubscriber                *sqlx.Stmt `query:"upsert-subscriber"`
@@ -88,6 +89,7 @@ type Queries struct {
 	GetOneCampaignSubscriber *sqlx.Stmt `query:"get-one-campaign-subscriber"`
 	UpdateCampaign           *sqlx.Stmt `query:"update-campaign"`
 	UpdateCampaignName       *sqlx.Stmt `query:"update-campaign-name"`
+	DismissPartialCampaign   *sqlx.Stmt `query:"dismiss-partial-campaign"`
 	UpdateCampaignStatus     *sqlx.Stmt `query:"update-campaign-status"`
 	UpdateCampaignCounts     *sqlx.Stmt `query:"update-campaign-counts"`
 	UpdateCampaignArchive    *sqlx.Stmt `query:"update-campaign-archive"`

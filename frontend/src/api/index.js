@@ -118,6 +118,11 @@ export const getDashboardEvents = (limit) => http.get(
   { params: { limit }, loading: models.dashboard },
 );
 
+// Campaigns that ended without reaching every recipient.
+export const getPartialCampaigns = () => http.get('/api/dashboard/partial-campaigns');
+
+export const dismissPartialCampaign = (id) => http.post(`/api/campaigns/${id}/dismiss-partial`);
+
 // Lists.
 export const getLists = (params) => http.get(
   '/api/lists',

@@ -350,6 +350,21 @@ func (a *App) UpdateCampaign(c echo.Context) error {
 	return c.JSON(http.StatusOK, okResp{out})
 }
 
+// DismissPartialCampaign marks a campaign's partial send as handled so the
+// dashboard alert stops listing it.
+func (a *App) DismissPartialCampaign(c echo.Context) error {
+	id := getID(c)
+	if err := a.checkCampaignPerm(auth.PermTypeManage, id, c); err != nil {
+		return err
+	}
+
+	if err := a.core.DismissPartialCampaign(id); err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, okResp{true})
+}
+
 // RenameCampaign updates only a campaign's name. It is allowed on
 // finished campaigns where every other field stays locked.
 func (a *App) RenameCampaign(c echo.Context) error {

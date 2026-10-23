@@ -137,6 +137,17 @@ func (a *App) GetDashboardEvents(c echo.Context) error {
 	return c.JSON(http.StatusOK, okResp{out})
 }
 
+// GetPartialCampaigns returns campaigns that ended without reaching every
+// recipient so the dashboard can shout about them.
+func (a *App) GetPartialCampaigns(c echo.Context) error {
+	out, err := a.core.GetPartialCampaigns()
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, okResp{out})
+}
+
 // ReloadApp sends a reload signal to the app, causing a full restart.
 func (a *App) ReloadApp(c echo.Context) error {
 	go func() {

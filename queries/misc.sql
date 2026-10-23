@@ -100,3 +100,19 @@ UPDATE settings SET value = $2, updated_at = NOW() WHERE key = $1;
 -- name: get-db-info
 SELECT JSON_BUILD_OBJECT('version', (SELECT VERSION()),
                         'size_mb', (SELECT ROUND(pg_database_size((SELECT CURRENT_DATABASE()))/(1024^2)))) AS info;
+
+-- name: get-partial-campaigns
+-- Campaigns that ended short of their recipient count, ie a send that ran
+-- out of errors and still got marked finished with fewer sends than to_send.
+-- Rows dismissed from the dashboard carry a partial_resolved attrib and drop out.
+SELECT COALESCE(JSON_AGG(t ORDER BY t.updated_at DESC), '[]') FROM (
+    SELECT c.id, c.name, c.subject, c.status, c.sent, c.to_send,
+        (c.to_send - c.sent) AS missing, c.started_at, c.updated_at
+    FROM campaigns c
+    WHERE c.status IN ('finished', 'paused')
+        AND c.to_send > 0
+        AND c.sent < c.to_send
+        AND NOT (c.attribs ? 'partial_resolved')
+    ORDER BY c.updated_at DESC
+    LIMIT 20
+) t;
