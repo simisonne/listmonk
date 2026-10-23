@@ -72,9 +72,31 @@ type Auth struct {
 	sessStore *postgres.Store
 	cb        *Callbacks
 	log       *log.Logger
+
+	// Session sliding. renewStmt refreshes the row's created_at, which the
+	// store compares against its TTL and prunes on. renewed throttles the
+	// slide per session ID.
+	renewStmt *sql.Stmt
+	renewed   map[string]time.Time
+	renewedMu sync.Mutex
 }
 
 var sessPruneInterval = time.Hour * 12
+
+const (
+	// sessionIdleTTL is how long a login session may sit unused before it
+	// stops working. Both the DB row and the browser cookie are slid forward
+	// while the session is in use (see renewSession), so this is an idle
+	// window and not a limit on how long you can stay logged in.
+	sessionIdleTTL = time.Hour * 24 * 90
+
+	// sessionRenewInterval throttles that slide so that every request does
+	// not write the session row or re-send the cookie.
+	sessionRenewInterval = time.Hour
+
+	// sessionsTable must match postgres.Opt.Table, which defaults to this.
+	sessionsTable = "sessions"
+)
 
 // New returns an initialize Auth instance.
 func New(cfg Config, db *sql.DB, cb *Callbacks, lo *log.Logger) (*Auth, error) {
@@ -84,6 +106,7 @@ func New(cfg Config, db *sql.DB, cb *Callbacks, lo *log.Logger) (*Auth, error) {
 		log: lo,
 
 		apiUsers: map[string]User{},
+		renewed:  map[string]time.Time{},
 	}
 
 	// Initialize session manager.
@@ -92,16 +115,27 @@ func New(cfg Config, db *sql.DB, cb *Callbacks, lo *log.Logger) (*Auth, error) {
 		SessionIDLength:  64,
 		Cookie: simplesessions.CookieOptions{
 			IsHTTPOnly: true,
-			MaxAge:     time.Hour * 24 * 7,
+			MaxAge:     sessionIdleTTL,
+
+			// Explicit path, because a cookie written without one is scoped to
+			// the directory of the request that set it. Renovation happens on
+			// deep API paths, which would narrow or fork the cookie.
+			Path: "/",
 		},
 	})
-	st, err := postgres.New(postgres.Opt{TTL: time.Hour * 24 * 7}, db)
+	st, err := postgres.New(postgres.Opt{TTL: sessionIdleTTL}, db)
 	if err != nil {
 		return nil, err
 	}
 	a.sessStore = st
 	a.sess.UseStore(st)
 	a.sess.SetCookieHooks(cb.GetCookie, cb.SetCookie)
+
+	// Statement used by renewSession to slide the row forward.
+	a.renewStmt, err = db.Prepare(fmt.Sprintf("UPDATE %s SET created_at = NOW() WHERE id = $1", sessionsTable))
+	if err != nil {
+		return nil, err
+	}
 
 	// Prune dead sessions from the DB periodically.
 	go func() {
@@ -330,6 +364,11 @@ func (o *Auth) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 		// Set the user details on the handler context.
 		c.Set(UserHTTPCtxKey, user)
 		c.Set(SessionKey, sess)
+
+		// Slide the session and its cookie forward so an active login never
+		// goes stale.
+		o.renewSession(sess)
+
 		return next(c)
 	}
 }
@@ -382,6 +421,48 @@ func (o *Auth) SaveSession(u User, oidcToken string, c echo.Context) error {
 	}
 
 	return nil
+}
+
+// renewSession slides a live session forward. The store treats a row older
+// than its TTL as invalid and prunes on the same rule, so refreshing
+// created_at while the session is in use turns the TTL into an idle timeout
+// instead of a fixed lifetime from login. The browser cookie is re-issued with
+// the same window so it does not lapse on its own either. Both are throttled
+// to once per sessionRenewInterval per session.
+func (o *Auth) renewSession(sess *simplesessions.Session) {
+	if sess == nil {
+		return
+	}
+	id := sess.ID()
+	if id == "" {
+		return
+	}
+
+	now := time.Now()
+
+	o.renewedMu.Lock()
+	if last, ok := o.renewed[id]; ok && now.Sub(last) < sessionRenewInterval {
+		o.renewedMu.Unlock()
+		return
+	}
+	o.renewed[id] = now
+	// Keep the map from growing without bound on a long running instance.
+	if len(o.renewed) > 256 {
+		for k, t := range o.renewed {
+			if now.Sub(t) > sessionRenewInterval*2 {
+				delete(o.renewed, k)
+			}
+		}
+	}
+	o.renewedMu.Unlock()
+
+	if _, err := o.renewStmt.Exec(id); err != nil {
+		o.log.Printf("error renewing session: %v", err)
+	}
+
+	if err := sess.WriteCookie(id); err != nil {
+		o.log.Printf("error renewing session cookie: %v", err)
+	}
 }
 
 // GetSessionID returns the current session ID from the echo context.
