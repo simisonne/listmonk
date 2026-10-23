@@ -779,6 +779,7 @@ WHERE NOT (v.subscriber_id IS NOT NULL
 
 
 -- name: dismiss-partial-campaign
--- Marks a partially sent campaign as handled so the dashboard alert drops it.
-UPDATE campaigns SET attribs = attribs || '{"partial_resolved": true}'::JSONB
-WHERE id = $1 RETURNING id;
+-- Marks a partially sent campaign as handled with a tag so the dashboard alert drops it.
+UPDATE campaigns SET tags = ARRAY_APPEND(COALESCE(tags, '{}'::VARCHAR[]), 'partial-resolved')
+WHERE id = $1 AND NOT ('partial-resolved' = ANY(COALESCE(tags, '{}'::VARCHAR[])))
+RETURNING id;
