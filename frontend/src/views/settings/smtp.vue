@@ -47,6 +47,9 @@
                     <option value="plain">
                       PLAIN
                     </option>
+                    <option value="xoauth2">
+                      XOAUTH2
+                    </option>
                     <option value="none">
                       None
                     </option>
@@ -61,13 +64,43 @@
                   </b-field>
                   <b-field :label="$t('settings.mailserver.password')" label-position="on-border" expanded
                     :message="$t('settings.mailserver.passwordHelp')">
-                    <b-input v-model="item.password" :disabled="item.auth_protocol === 'none'" name="password"
-                      type="password" :custom-class="`password-${n}`"
+                    <b-input v-model="item.password"
+                      :disabled="item.auth_protocol === 'none' || item.auth_protocol === 'xoauth2'"
+                      name="password" type="password" :custom-class="`password-${n}`"
                       :placeholder="$t('settings.mailserver.passwordHelp')" :maxlength="200" />
                   </b-field>
                 </b-field>
               </div>
             </div><!-- auth -->
+            <div class="columns" v-if="item.auth_protocol === 'xoauth2'">
+              <div class="column is-6">
+                <b-field :label="$t('settings.mailserver.oauthClientId')" label-position="on-border"
+                  :message="$t('settings.mailserver.oauthHelp')">
+                  <b-input v-model="item.oauth_client_id" name="oauth_client_id"
+                    placeholder="1234567890-abc.apps.googleusercontent.com" :maxlength="200" />
+                </b-field>
+              </div>
+              <div class="column is-6">
+                <b-field :label="$t('settings.mailserver.oauthClientSecret')" label-position="on-border">
+                  <b-input v-model="item.oauth_client_secret" name="oauth_client_secret" type="password"
+                    :placeholder="$t('settings.mailserver.passwordHelp')" :maxlength="200" />
+                </b-field>
+              </div>
+            </div>
+            <div class="columns" v-if="item.auth_protocol === 'xoauth2'">
+              <div class="column is-6">
+                <b-field :label="$t('settings.mailserver.oauthRefreshToken')" label-position="on-border">
+                  <b-input v-model="item.oauth_refresh_token" name="oauth_refresh_token" type="password"
+                    :placeholder="$t('settings.mailserver.passwordHelp')" :maxlength="400" />
+                </b-field>
+              </div>
+              <div class="column is-6">
+                <b-field :label="$t('settings.mailserver.oauthTokenUrl')" label-position="on-border">
+                  <b-input v-model="item.oauth_token_url" name="oauth_token_url"
+                    placeholder="https://oauth2.googleapis.com/token" :maxlength="200" />
+                </b-field>
+              </div>
+            </div>
             <div class="spaced-links is-size-7">
               <a href="#" @click.prevent="() => fillSettings(n, 'gmail')">Gmail</a>
               <a href="#" @click.prevent="() => fillSettings(n, 'ses')">Amazon SES</a>
@@ -297,6 +330,10 @@ export default Vue.extend({
         auth_protocol: 'none',
         username: '',
         password: '',
+        oauth_client_id: '',
+        oauth_client_secret: '',
+        oauth_refresh_token: '',
+        oauth_token_url: '',
         email_headers: [],
         from_addresses: [],
         max_conns: 10,

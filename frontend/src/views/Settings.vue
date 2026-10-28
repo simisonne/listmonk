@@ -122,6 +122,18 @@ export default Vue.extend({
           hasDummy = `smtp #${i + 1}`;
         }
 
+        // Same for the OAuth2 credentials, which the server masks too.
+        if (this.isDummy(form.smtp[i].oauth_client_secret)) {
+          form.smtp[i].oauth_client_secret = '';
+        } else if (this.hasDummy(form.smtp[i].oauth_client_secret)) {
+          hasDummy = `smtp #${i + 1}`;
+        }
+        if (this.isDummy(form.smtp[i].oauth_refresh_token)) {
+          form.smtp[i].oauth_refresh_token = '';
+        } else if (this.hasDummy(form.smtp[i].oauth_refresh_token)) {
+          hasDummy = `smtp #${i + 1}`;
+        }
+
         if (form.smtp[i].strEmailHeaders && form.smtp[i].strEmailHeaders !== '[]') {
           form.smtp[i].email_headers = JSON.parse(form.smtp[i].strEmailHeaders);
         } else {

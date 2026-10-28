@@ -64,6 +64,9 @@ func (a *App) GetSettings(c echo.Context) error {
 	// Empty out passwords.
 	for i := range s.SMTP {
 		s.SMTP[i].Password = strings.Repeat(pwdMask, utf8.RuneCountInString(s.SMTP[i].Password))
+		// The OAuth2 grant is a credential too, so it never leaves the server.
+		s.SMTP[i].OAuthClientSecret = strings.Repeat(pwdMask, utf8.RuneCountInString(s.SMTP[i].OAuthClientSecret))
+		s.SMTP[i].OAuthRefreshToken = strings.Repeat(pwdMask, utf8.RuneCountInString(s.SMTP[i].OAuthRefreshToken))
 	}
 	for i := range s.BounceBoxes {
 		s.BounceBoxes[i].Password = strings.Repeat(pwdMask, utf8.RuneCountInString(s.BounceBoxes[i].Password))
@@ -144,6 +147,23 @@ func (a *App) UpdateSettings(c echo.Context) error {
 			for _, c := range cur.SMTP {
 				if s.UUID == c.UUID {
 					set.SMTP[i].Password = c.Password
+				}
+			}
+		}
+
+		// Same rule for the OAuth2 secrets: the UI only ever sees the mask, so
+		// an empty value means "keep what is stored" rather than "wipe it".
+		if s.OAuthClientSecret == "" {
+			for _, c := range cur.SMTP {
+				if s.UUID == c.UUID {
+					set.SMTP[i].OAuthClientSecret = c.OAuthClientSecret
+				}
+			}
+		}
+		if s.OAuthRefreshToken == "" {
+			for _, c := range cur.SMTP {
+				if s.UUID == c.UUID {
+					set.SMTP[i].OAuthRefreshToken = c.OAuthRefreshToken
 				}
 			}
 		}

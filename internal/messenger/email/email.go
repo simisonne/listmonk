@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"math/rand"
@@ -12,6 +13,7 @@ import (
 	"github.com/knadh/listmonk/internal/utils"
 	"github.com/knadh/listmonk/models"
 	"github.com/knadh/smtppool/v2"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -34,6 +36,17 @@ type Server struct {
 	TLSSkipVerify bool              `json:"tls_skip_verify"`
 	EmailHeaders  map[string]string `json:"email_headers"`
 	FromAddresses []string          `json:"from_addresses"`
+
+	// OAuth2 credentials for auth_protocol "xoauth2". Google and Microsoft
+	// both accept AUTH XOAUTH2 on their submission ports in place of a
+	// password, which is the only supported way for an app to send as a
+	// Gmail address since password based access was retired. The refresh
+	// token is exchanged for an access token on the fly, so no account
+	// password is ever stored here.
+	OAuthClientID     string `json:"oauth_client_id"`
+	OAuthClientSecret string `json:"oauth_client_secret"`
+	OAuthRefreshToken string `json:"oauth_refresh_token"`
+	OAuthTokenURL     string `json:"oauth_token_url"`
 
 	// Rest of the options are embedded directly from the smtppool lib.
 	// The JSON tag is for config unmarshal to work.
@@ -58,6 +71,63 @@ func NormalizeAddr(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
 }
 
+// xoauth2Auth implements SMTP AUTH XOAUTH2, which lets an OAuth2 access token
+// take the place of a password. Google only accepts this flow for apps that
+// authenticate as a user, and it is what the Gmail API mail merge tools send
+// through, so a campaign goes out on the same channel Gmail treats as a known
+// application instead of a password login from an unknown client.
+type xoauth2Auth struct {
+	user string
+	ts   oauth2.TokenSource
+}
+
+// Start returns the XOAUTH2 initial response. The token source caches the
+// access token and renews it when it expires, so a long campaign refreshes
+// once an hour instead of failing mid send.
+func (a *xoauth2Auth) Start(_ *smtp.ServerInfo) (string, []byte, error) {
+	tok, err := a.ts.Token()
+	if err != nil {
+		return "", nil, fmt.Errorf("xoauth2: could not get an access token: %v", err)
+	}
+	if tok.AccessToken == "" {
+		return "", nil, fmt.Errorf("xoauth2: got an empty access token")
+	}
+	return "XOAUTH2", []byte("user=" + a.user + "\x01auth=Bearer " + tok.AccessToken + "\x01\x01"), nil
+}
+
+// Next is only reached when the server sends a challenge instead of accepting
+// the token, which in practice means the grant expired or was revoked. Return
+// the server's own message so it lands in the send log.
+func (a *xoauth2Auth) Next(fromServer []byte, more bool) ([]byte, error) {
+	if !more {
+		return nil, nil
+	}
+	return nil, fmt.Errorf("xoauth2: server rejected the token: %s", strings.TrimSpace(string(fromServer)))
+}
+
+// oauthTokenSource builds a caching token source from a stored refresh token.
+func oauthTokenSource(s Server) (oauth2.TokenSource, error) {
+	if s.OAuthClientID == "" || s.OAuthRefreshToken == "" {
+		return nil, fmt.Errorf("SMTP server %s: auth protocol xoauth2 needs oauth_client_id and oauth_refresh_token", s.Host)
+	}
+
+	tokenURL := s.OAuthTokenURL
+	if tokenURL == "" {
+		tokenURL = "https://oauth2.googleapis.com/token"
+	}
+
+	conf := &oauth2.Config{
+		ClientID:     s.OAuthClientID,
+		ClientSecret: s.OAuthClientSecret,
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  tokenURL,
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
+	}
+	return oauth2.ReuseTokenSource(nil,
+		conf.TokenSource(context.Background(), &oauth2.Token{RefreshToken: s.OAuthRefreshToken})), nil
+}
+
 // New returns an SMTP e-mail Messenger backend with the given SMTP servers.
 // Group indicates whether the messenger represents a group of SMTP servers (1 or more)
 // that are used as a round-robin pool, or a single server.
@@ -78,6 +148,12 @@ func New(name string, servers ...Server) (*Emailer, error) {
 			auth = smtp.PlainAuth("", s.Username, s.Password, s.Host)
 		case "login":
 			auth = &smtppool.LoginAuth{Username: s.Username, Password: s.Password}
+		case "xoauth2":
+			ts, err := oauthTokenSource(s)
+			if err != nil {
+				return nil, err
+			}
+			auth = &xoauth2Auth{user: s.Username, ts: ts}
 		case "", "none":
 		default:
 			return nil, fmt.Errorf("unknown SMTP auth type '%s'", s.AuthProtocol)
