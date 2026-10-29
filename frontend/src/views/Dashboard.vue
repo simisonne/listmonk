@@ -256,15 +256,10 @@
               <p v-else-if="!isEventsLoading" class="has-text-grey">
                 {{ $t('dashboard.noEvents') }}
               </p>
-              <div class="feed-foot">
                 <a v-if="activeEvents.length > 10" href="#" class="toggle"
                   @click.prevent="eventsExpanded = !eventsExpanded">
                   {{ eventsExpanded ? $t('dashboard.showLess') : $t('dashboard.showMore') }}
                 </a>
-                <a v-if="hiddenCount" href="#" class="toggle has-text-grey" @click.prevent="restoreHidden">
-                  {{ hiddenCount }} hidden, show again
-                </a>
-              </div>
             </article>
           </div>
         </div>
@@ -406,18 +401,14 @@ export default Vue.extend({
       }
     },
 
-    // Hiding has no confirm step on purpose: the row only leaves the feed, the
-    // page keeps its "N hidden, show again" link, and nothing is deleted.
+    // Hiding has no confirm step on purpose: the row only leaves the feed and
+    // nothing is deleted. There is no undo in the card, so a hidden row stays
+    // hidden in this browser; clear the dashboard.hiddenEvents storage key to
+    // bring them all back.
     hideEvent(e) {
       this.hiddenEvents = { ...this.hiddenEvents, [this.eventKey(e)]: Date.now() };
       this.persistHiddenEvents();
       this.$utils.toast('Hidden from recent events. Nothing was deleted.');
-    },
-
-    restoreHidden() {
-      this.hiddenEvents = {};
-      this.persistHiddenEvents();
-      this.$utils.toast('Hidden rows are back.');
     },
 
     makeChart(data) {
@@ -597,10 +588,6 @@ export default Vue.extend({
     activeEvents() {
       return this.events.filter((e) => !this.hiddenEvents[this.eventKey(e)]);
     },
-    // Hidden rows that are in the current window, for the "show again" link.
-    hiddenCount() {
-      return this.events.filter((e) => this.hiddenEvents[this.eventKey(e)]).length;
-    },
     // Hiding a row lets the next older one up, so the card keeps its length.
     visibleEvents() {
       if (this.eventsExpanded) {
@@ -735,11 +722,6 @@ export default Vue.extend({
 }
 .events .event-del:hover {
   color: #b91c1c;
-}
-.feed-foot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
 }
 .events .event-text a {
   text-decoration: none;
