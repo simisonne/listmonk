@@ -247,8 +247,8 @@
                       :style="eventHl('weekly')">visited the weekly loops page</span>{{ melodiesDetail(e) }}</template>
                     <template v-else>{{ e.type }}</template>
                   </span>
-                  <button type="button" class="event-del" title="Hide from recent events"
-                    aria-label="Hide from recent events" @click.prevent="confirmHide(e)">
+                  <button type="button" class="event-del" title="Hide from recent events, nothing is deleted"
+                    aria-label="Hide from recent events" @click.prevent="hideEvent(e)">
                     <b-icon icon="trash-can-outline" size="is-small" />
                   </button>
                 </li>
@@ -406,19 +406,12 @@ export default Vue.extend({
       }
     },
 
-    // The trash icon asks first, and the wording says plainly that nothing is
-    // deleted, because the row leaving the feed looks like a delete.
-    confirmHide(e) {
-      this.$utils.confirm(
-        'Hide this row from recent events? Nothing is deleted: it stays in the database, and visits keep showing on the Website page.',
-        () => this.hideEvent(e),
-      );
-    },
-
+    // Hiding has no confirm step on purpose: the row only leaves the feed, the
+    // page keeps its "N hidden, show again" link, and nothing is deleted.
     hideEvent(e) {
       this.hiddenEvents = { ...this.hiddenEvents, [this.eventKey(e)]: Date.now() };
       this.persistHiddenEvents();
-      this.$utils.toast('Hidden from recent events.');
+      this.$utils.toast('Hidden from recent events. Nothing was deleted.');
     },
 
     restoreHidden() {

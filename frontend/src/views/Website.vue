@@ -143,12 +143,11 @@ export default Vue.extend({
       return '';
     },
 
+    // Exactly what the log recorded, the same way the dashboard feed reads
+    // it: "Bot, Bot" and "Unknown, Unknown" are information here, an empty
+    // cell would look like the row had no device at all.
     device(e) {
-      // The site writes "Unknown" when its UA sniffing finds nothing, which
-      // is noise in a column, not information.
-      return [e.device, e.browser]
-        .filter((v) => v && String(v).toLowerCase() !== 'unknown')
-        .join(', ');
+      return [e.device, e.browser].filter((v) => v).join(', ');
     },
 
     location(e) {
