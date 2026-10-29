@@ -18,6 +18,12 @@ const routes = [
     component: () => import('../views/Dashboard.vue'),
   },
   {
+    path: '/website',
+    name: 'website',
+    meta: { title: 'menu.website' },
+    component: () => import('../views/Website.vue'),
+  },
+  {
     path: '/lists',
     name: 'lists',
     meta: { title: 'globals.terms.lists', group: 'lists' },

@@ -90,6 +90,44 @@ export const EVENT_COLORS = {
   weekly: { base: '#0D9488', deep: '#115E59' },
 };
 
+// The sites that are tracked, in the order the Website page lists them.
+export const SITE_LABELS = {
+  melodies: 'Melodies',
+  beats: 'Beats',
+  loops: 'Loops',
+  portfolio: 'Portfolio',
+};
+
+// Which site a site event belongs to. Page actions are bound to one site,
+// plays and downloads carry their own site= tag, which the oldest lines
+// predate and therefore count as Melodies.
+export const eventSiteKey = (e) => {
+  const t = String((e && e.type) || '');
+  if (t === 'site_visit') {
+    return 'melodies';
+  }
+  if (t === 'beats_visit') {
+    return 'beats';
+  }
+  if (t === 'weekly_loops_page') {
+    return 'loops';
+  }
+  if (t === 'portfolio_visit' || t === 'portfolio_referral') {
+    return 'portfolio';
+  }
+  const tag = String((e && e.site) || '').toLowerCase();
+  return ['beats', 'loops'].indexOf(tag) !== -1 ? tag : 'melodies';
+};
+
+// The EVENT_COLORS key a site wears: the loops site uses the teal its page
+// visits have always been highlighted with.
+export const siteColorKey = (key) => {
+  if (key === 'loops') {
+    return 'weekly';
+  }
+  return EVENT_COLORS[key] ? key : 'melodies';
+};
+
 // #rrggbb (or #rgb) hex plus an alpha as an rgba() string, for inline styles.
 const withAlpha = (hex, alpha) => {
   let h = String(hex || '').replace('#', '');
@@ -247,6 +285,22 @@ export default class Utils {
   escapeHTML = (html) => html.replace(/[&<>"'`=/]/g, (s) => htmlEntities[s]);
 
   titleCase = (str) => str[0].toUpperCase() + str.substr(1).toLowerCase();
+
+  // Berlin_DE -> "Berlin, DE", DE -> "DE", empty for a missing, private
+  // ("local") or unknown location.
+  prettyLocation = (loc) => {
+    const v = loc || '';
+    if (!v || v === 'local' || v === 'unknown') {
+      return '';
+    }
+    const i = v.lastIndexOf('_');
+    if (i === -1) {
+      return v;
+    }
+    const city = v.slice(0, i);
+    const cc = v.slice(i + 1);
+    return city && cc ? `${city}, ${cc}` : (city || cc);
+  };
 
   // UI shortcuts.
   confirm = (msg, onConfirm, onCancel) => {

@@ -137,6 +137,24 @@ func (a *App) GetDashboardEvents(c echo.Context) error {
 	return c.JSON(http.StatusOK, okResp{out})
 }
 
+// GetSiteEvents returns every tracked site event (page visits, plays,
+// downloads, portfolio visits) for the Website page.
+func (a *App) GetSiteEvents(c echo.Context) error {
+	lim := 200
+	if q := c.QueryParam("limit"); q != "" {
+		if n, err := strconv.Atoi(q); err == nil {
+			lim = n
+		}
+	}
+
+	out, err := a.core.GetSiteEvents(lim)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, okResp{out})
+}
+
 // GetPartialCampaigns returns campaigns that ended without reaching every
 // recipient so the dashboard can shout about them.
 func (a *App) GetPartialCampaigns(c echo.Context) error {

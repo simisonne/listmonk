@@ -53,6 +53,20 @@
         data-cy="listRoles" icon="format-list-bulleted-square" :label="$t('users.listRoles')" />
     </b-menu-item><!-- users -->
 
+    <!-- Website: every tracked site event, between Users and Settings. The
+         icon font here has no globe glyph, so the globe is inline SVG. -->
+    <b-menu-item :to="{ name: 'website' }" tag="router-link" :active="activeItem.website"
+      data-cy="website">
+      <template #label>
+        <span class="nav-website-label">
+          <svg class="nav-globe" viewBox="0 0 24 24" aria-hidden="true">
+            <path :d="globePath" />
+          </svg>
+          {{ $t('menu.website') }}
+        </span>
+      </template>
+    </b-menu-item><!-- website -->
+
     <b-menu-item v-if="$can('settings:*')" :expanded="activeGroup.settings" :active="activeGroup.settings"
       data-cy="settings" @update:active="(state) => toggleGroup('settings', state)" icon="cog-outline"
       :label="$t('menu.settings')">
@@ -76,6 +90,20 @@ export default {
     activeItem: { type: Object, default: () => { } },
     activeGroup: { type: Object, default: () => { } },
     isMobile: Boolean,
+  },
+
+  data() {
+    return {
+      // Material's globe outline. The bundled icon font has no globe glyph,
+      // so the one menu icon that needs it draws its own path. Split at path
+      // command boundaries only, the pieces concatenate into one path.
+      globePath: [
+        'M17.9 17.39c-.26-.8-1.01-1.39-1.9-1.39h-1v-3a1 1 0 0 0-1-1H8v-2h2',
+        'a1 1 0 0 0 1-1V7h2a2 2 0 0 0 2-2v-.41a7.984 7.984 0 0 1 2.9 12.8',
+        'M11 19.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1a2 2 0 0 0 2 2',
+        'm1-16A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2Z',
+      ].join(''),
+    };
   },
 
   methods: {
@@ -106,3 +134,18 @@ export default {
 };
 
 </script>
+
+<style scoped>
+/* The globe sits where a b-icon sits in every other menu item. */
+.nav-website-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+}
+.nav-globe {
+  width: 1.05em;
+  height: 1.05em;
+  flex: none;
+  fill: currentColor;
+}
+</style>

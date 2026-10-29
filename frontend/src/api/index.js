@@ -118,6 +118,14 @@ export const getDashboardEvents = (limit) => http.get(
   { params: { limit }, loading: models.dashboard },
 );
 
+// Every tracked site event (page visits, plays, downloads, portfolio visits)
+// for the Website page. Rows from Simon's own network come back flagged
+// hidden, so the page can toggle them without another request.
+export const getSiteEvents = (limit) => http.get(
+  '/api/dashboard/site-events',
+  { params: { limit }, loading: models.dashboard },
+);
+
 // Campaigns that ended without reaching every recipient.
 export const getPartialCampaigns = () => http.get('/api/dashboard/partial-campaigns');
 

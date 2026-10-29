@@ -187,7 +187,7 @@
                 {{ $t('dashboard.recentEvents') }}
               </h3>
               <ul v-if="visibleEvents.length" class="events">
-                <li v-for="(e, i) in visibleEvents" :key="i" class="event">
+                <li v-for="(e, i) in visibleEvents" :key="eventKey(e, i)" class="event" data-cy="event">
                   <small class="has-text-grey timestamp" :title="eventRelative(e.createdAt)">{{ eventTime(e.createdAt) }}</small>
                   <b-icon :icon="eventIcon(e.type)" size="is-small" />
                   <span class="event-text">
@@ -247,15 +247,24 @@
                       :style="eventHl('weekly')">visited the weekly loops page</span>{{ melodiesDetail(e) }}</template>
                     <template v-else>{{ e.type }}</template>
                   </span>
+                  <button type="button" class="event-del" title="Hide from recent events"
+                    aria-label="Hide from recent events" @click.prevent="confirmHide(e)">
+                    <b-icon icon="trash-can-outline" size="is-small" />
+                  </button>
                 </li>
               </ul>
               <p v-else-if="!isEventsLoading" class="has-text-grey">
                 {{ $t('dashboard.noEvents') }}
               </p>
-              <a v-if="events.length > 10" href="#" class="toggle"
-                @click.prevent="eventsExpanded = !eventsExpanded">
-                {{ eventsExpanded ? $t('dashboard.showLess') : $t('dashboard.showMore') }}
-              </a>
+              <div class="feed-foot">
+                <a v-if="activeEvents.length > 10" href="#" class="toggle"
+                  @click.prevent="eventsExpanded = !eventsExpanded">
+                  {{ eventsExpanded ? $t('dashboard.showLess') : $t('dashboard.showMore') }}
+                </a>
+                <a v-if="hiddenCount" href="#" class="toggle has-text-grey" @click.prevent="restoreHidden">
+                  {{ hiddenCount }} hidden, show again
+                </a>
+              </div>
             </article>
           </div>
         </div>
@@ -277,9 +286,19 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import Vue from 'vue';
 import { mapState } from 'vuex';
 import { colors } from '../constants';
+import { eventSiteKey as siteKeyOf, siteColorKey } from '../utils';
 import Chart from '../components/Chart.vue';
 
 dayjs.extend(relativeTime);
+
+// Where this browser remembers the feed rows Simon hid. Hiding is a display
+// choice only: nothing is deleted from the DB, the activity log keeps its
+// lines, and the Website page still lists every visit.
+const HIDDEN_EVENTS_KEY = 'dashboard.hiddenEvents';
+
+// Hidden rows whose key has not been seen for this long are forgotten. They
+// scrolled out of the fetched window long ago and can never come back.
+const HIDDEN_EVENTS_MAX_AGE = 1000 * 60 * 60 * 24 * 90;
 
 export default Vue.extend({
   components: {
@@ -293,6 +312,7 @@ export default Vue.extend({
       isEventsLoading: true,
       eventsExpanded: false,
       events: [],
+      hiddenEvents: {},
       partialCampaigns: [],
       campaignViews: null,
       campaignClicks: null,
@@ -349,6 +369,62 @@ export default Vue.extend({
         this.partialCampaigns = this.partialCampaigns.filter((x) => x.id !== c.id);
         this.$utils.toast('Hidden. That campaign will not be alerted again.');
       });
+    },
+
+    // Identity of one feed row. Neither the DB half nor the log half of the
+    // feed carries an id, so the row's own values stand in for one: two rows
+    // that agree on all of them are the same row for hiding purposes.
+    eventKey(e) {
+      return [
+        e.type, e.createdAt, e.campaignId, e.subscriberId, e.email, e.listName,
+        e.url, e.track, e.openCount, e.site, e.ip, e.path, e.ref,
+      ].join('|');
+    },
+
+    loadHiddenEvents() {
+      const now = Date.now();
+      const kept = {};
+      try {
+        const raw = window.localStorage.getItem(HIDDEN_EVENTS_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        Object.keys(parsed).forEach((k) => {
+          if (now - parsed[k] < HIDDEN_EVENTS_MAX_AGE) {
+            kept[k] = parsed[k];
+          }
+        });
+      } catch (err) {
+        // Unreadable or blocked storage just means nothing is hidden yet.
+      }
+      this.hiddenEvents = kept;
+    },
+
+    persistHiddenEvents() {
+      try {
+        window.localStorage.setItem(HIDDEN_EVENTS_KEY, JSON.stringify(this.hiddenEvents));
+      } catch (err) {
+        // Out of quota or storage blocked: the hiding still holds for this page.
+      }
+    },
+
+    // The trash icon asks first, and the wording says plainly that nothing is
+    // deleted, because the row leaving the feed looks like a delete.
+    confirmHide(e) {
+      this.$utils.confirm(
+        'Hide this row from recent events? Nothing is deleted: it stays in the database, and visits keep showing on the Website page.',
+        () => this.hideEvent(e),
+      );
+    },
+
+    hideEvent(e) {
+      this.hiddenEvents = { ...this.hiddenEvents, [this.eventKey(e)]: Date.now() };
+      this.persistHiddenEvents();
+      this.$utils.toast('Hidden from recent events.');
+    },
+
+    restoreHidden() {
+      this.hiddenEvents = {};
+      this.persistHiddenEvents();
+      this.$utils.toast('Hidden rows are back.');
     },
 
     makeChart(data) {
@@ -408,7 +484,7 @@ export default Vue.extend({
     melodiesDetail(e) {
       const parts = [e.device, e.browser].filter((v) => v);
       let out = parts.length ? ` (${parts.join(', ')})` : '';
-      const loc = this.prettyLocation(e.location);
+      const loc = this.$utils.prettyLocation(e.location);
       if (loc) {
         out += ` from ${loc}`;
       }
@@ -426,10 +502,10 @@ export default Vue.extend({
       return 'the Melodies site';
     },
 
-    // The matching highlight colour key for eventHl().
+    // The matching highlight colour key for eventHl(): the loops site wears
+    // the teal its page visits use.
     eventSiteKey(e) {
-      const key = String(e.site || '').toLowerCase();
-      return ['beats', 'loops'].indexOf(key) !== -1 ? key : 'melodies';
+      return siteColorKey(siteKeyOf(e));
     },
 
     // ": education" page suffix for portfolio visits, empty for the home
@@ -454,7 +530,7 @@ export default Vue.extend({
     siteDetail(e) {
       const parts = [e.device, e.browser].filter((v) => v);
       let out = parts.length ? ` (${parts.join(', ')})` : '';
-      const loc = this.prettyLocation(e.location);
+      const loc = this.$utils.prettyLocation(e.location);
       if (loc) {
         out += ` from ${loc}`;
       }
@@ -462,21 +538,6 @@ export default Vue.extend({
         out += ` (${e.ip})`;
       }
       return out;
-    },
-
-    // Berlin_DE -> "Berlin, DE", DE -> "DE", local / unknown -> ''.
-    prettyLocation(loc) {
-      const v = loc || '';
-      if (!v || v === 'local' || v === 'unknown') {
-        return '';
-      }
-      const i = v.lastIndexOf('_');
-      if (i === -1) {
-        return v;
-      }
-      const city = v.slice(0, i);
-      const cc = v.slice(i + 1);
-      return city && cc ? `${city}, ${cc}` : (city || cc);
     },
 
     // 1 -> 1st, 2 -> 2nd, 3 -> 3rd, 4 -> 4th, 11-13 -> th.
@@ -539,11 +600,20 @@ export default Vue.extend({
     dayjs() {
       return dayjs;
     },
+    // Rows still in the feed, ie everything Simon has not hidden.
+    activeEvents() {
+      return this.events.filter((e) => !this.hiddenEvents[this.eventKey(e)]);
+    },
+    // Hidden rows that are in the current window, for the "show again" link.
+    hiddenCount() {
+      return this.events.filter((e) => this.hiddenEvents[this.eventKey(e)]).length;
+    },
+    // Hiding a row lets the next older one up, so the card keeps its length.
     visibleEvents() {
       if (this.eventsExpanded) {
-        return this.events;
+        return this.activeEvents;
       }
-      return this.events.slice(0, 10);
+      return this.activeEvents.slice(0, 10);
     },
   },
 
@@ -558,6 +628,7 @@ export default Vue.extend({
   },
 
   mounted() {
+    this.loadHiddenEvents();
     this.fetchData();
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.startAutoRefresh();
@@ -649,6 +720,33 @@ export default Vue.extend({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* Sits at the very right of the row and only shows while the row is hovered.
+   The slot is reserved at all times so the text does not reflow on hover. */
+.events .event-del {
+  flex: 0 0 auto;
+  width: 1.4rem;
+  align-self: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #dc2626;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease-in;
+}
+.events .event:hover .event-del,
+.events .event-del:focus {
+  opacity: 1;
+}
+.events .event-del:hover {
+  color: #b91c1c;
+}
+.feed-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 .events .event-text a {
   text-decoration: none;

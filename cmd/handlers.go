@@ -105,6 +105,7 @@ func initHTTPHandlers(e *echo.Echo, a *App) {
 		g.GET("/api/dashboard/charts", a.GetDashboardCharts)
 		g.GET("/api/dashboard/counts", a.GetDashboardCounts)
 		g.GET("/api/dashboard/events", a.GetDashboardEvents)
+		g.GET("/api/dashboard/site-events", a.GetSiteEvents)
 		g.GET("/api/dashboard/partial-campaigns", a.GetPartialCampaigns)
 
 		g.GET("/api/settings", pm(a.GetSettings, "settings:get"))

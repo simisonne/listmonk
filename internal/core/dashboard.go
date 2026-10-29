@@ -84,6 +84,32 @@ func (c *Core) GetDashboardEvents(lim int) ([]models.DashboardEvent, error) {
 	return out, nil
 }
 
+// GetSiteEvents returns the newest tracked site events (page visits, plays,
+// downloads and portfolio visits) across every site that is not an email, ie
+// everything the PI-Website activity log records, newest first, capped at lim
+// (clamped to 1-1000). No DB rows are involved: this is the Website page's
+// own view of the log.
+//
+// Unlike the dashboard feed, lines from Simon's own egress are NOT dropped:
+// they come back with Hidden set, so the page can offer a hide / unhide
+// toggle over the same single fetch. His own logins (user=simon) stay out
+// either way, exactly as in the dashboard.
+func (c *Core) GetSiteEvents(lim int) ([]models.DashboardEvent, error) {
+	if lim < 1 {
+		lim = 50
+	}
+	if lim > 1000 {
+		lim = 1000
+	}
+
+	out := readSiteEvents(lim, siteEventOptions{includeHiddenLocations: true})
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+
+	return out, nil
+}
+
 // melodiesLogLine matches PI-Website activity_log.txt lines:
 // [2006-01-02 15:04:05] user=guest action=song_play song=foo.mp3 ip=1.2.3.4
 var melodiesLogLine = regexp.MustCompile(`^\[(.*?)\]\s+user=(\S*)\s+action=(\S*)(.*)$`)
@@ -105,10 +131,26 @@ var melodiesActionTypes = map[string]string{
 // the same way loops_page is not: the feed shows what visitors did, not what
 // Simon did behind the login.
 
+// siteEventOptions tunes the activity log reader.
+type siteEventOptions struct {
+	// includeHiddenLocations keeps the lines from Simon's own egress
+	// (Regensburg, and the private network token "local"). The dashboard feed
+	// leaves them out, the Website page lists them behind its own toggle with
+	// Hidden set on the event.
+	includeHiddenLocations bool
+}
+
 // readMelodiesEvents tails the PI-Website activity log (newest lines first)
-// and returns up to lim melodies site events. A missing or unreadable log
-// simply yields no events.
+// and returns up to lim site events with his own network's visits dropped.
+// A missing or unreadable log simply yields no events.
 func readMelodiesEvents(lim int) []models.DashboardEvent {
+	return readSiteEvents(lim, siteEventOptions{})
+}
+
+// readSiteEvents tails the PI-Website activity log (newest lines first) and
+// returns up to lim site events. A missing or unreadable log simply yields no
+// events.
+func readSiteEvents(lim int, opt siteEventOptions) []models.DashboardEvent {
 	path := os.Getenv("MELODIES_ACTIVITY_LOG")
 	if path == "" {
 		path = "/home/simon/shared/PI-Website/activity_log.txt"
@@ -121,8 +163,16 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 
 	out := []models.DashboardEvent{}
 	scanned := 0
+	// A bigger page wants a bigger window: the log also holds lines this
+	// reader skips (unmapped actions and Simon's own logins), so a fixed cap
+	// would shorten a 500 row page to whatever fits 2000 lines. The file is
+	// already in memory, so a wider window costs only the regex pass.
+	scanCap := 2000
+	if lim*20 > scanCap {
+		scanCap = lim * 20
+	}
 	for _, line := range strings.Split(string(data), "\n") {
-		if len(out) >= lim || scanned >= 2000 {
+		if len(out) >= lim || scanned >= scanCap {
 			break
 		}
 		scanned++
@@ -160,10 +210,13 @@ func readMelodiesEvents(lim int) []models.DashboardEvent {
 			ev.Browser = &b
 		}
 		if l := parseMelodiesMetaToken(m[4], "loc"); l != "" {
-			if isHiddenLocation(l) {
-				continue
-			}
 			ev.Location = &l
+			if isHiddenLocation(l) {
+				if !opt.includeHiddenLocations {
+					continue
+				}
+				ev.Hidden = true
+			}
 		}
 		if r := parseMelodiesMetaToken(m[4], "ref"); r != "" {
 			ev.Ref = &r

@@ -29,4 +29,9 @@ type DashboardEvent struct {
 	// loops). No SQL branch returns this column, which sqlx tolerates: only a
 	// returned column with no struct field is an error.
 	Site           *string   `db:"site" json:"site"`
+	// Hidden marks a site event whose location is one of the hidden ones
+	// (Regensburg, or the private network token) that the dashboard feed drops
+	// entirely. Only the Website page gets these rows, flagged so it can show
+	// or hide them without another round trip.
+	Hidden bool `db:"hidden" json:"hidden"`
 }
